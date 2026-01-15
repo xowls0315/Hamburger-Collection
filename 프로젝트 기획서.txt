@@ -1,0 +1,364 @@
+# 햄버거 모음 사이트
+
+# 0. 프로젝트 한 줄 요약
+
+**햄버거 브랜드별 메뉴/영양정보를 한 곳에서 탐색하고, 내 주변 매장까지 확인하며, 카카오 로그인 기반 게시판/댓글 커뮤니티를 제공하는 웹 서비스**
+
+---
+
+프론트엔드: localhost:3000, 백엔드: localhost: 3001
+
+# 1. 핵심 기능 요약
+
+## 1) 브랜드 메뉴 탐색
+
+- 헤더 브랜드 탭: 맥도날드 / 버거킹 / 롯데리아 / 맘스터치 / KFC / 노브랜드버거 / 프랭크버거
+- 브랜드 클릭 → 메뉴 리스트 + 메뉴 상세(사진/영양성분/출처 링크)
+
+## 2) 매장 찾기
+
+- 선택 브랜드 기준 “내 주변 매장 검색”
+- 지도 + 리스트(매장명/주소/거리/전화/카카오 place_url)
+- 운영시간은 `place_url` 클릭 유도
+
+## 3) 로그인/게시판
+
+- 카카오 로그인(OAuth)
+- 게스트: 게시글 목록/상세 “조회만”
+- 로그인 사용자: 게시글 CRUD + 댓글 CRUD
+
+---
+
+# 2. 화면 구성(IA)
+
+- `/` 홈 (브랜드 탭 + 추천/검색 진입)
+- `/brand/[slug]` 브랜드 메뉴 리스트
+- `/brand/[slug]/menu/[id]` 메뉴 상세(영양정보 + 출처)
+- `/brand/[slug]/stores` 매장찾기(지도+리스트)
+- `/board` 게시글 목록
+- `/board/new` 글 작성(로그인 필요)
+- `/board/[id]` 글 상세 + 댓글
+- `/mypage` 내 정보/내 글(옵션)
+
+---
+
+# 3. 역할별 A-Z 기획서
+
+## ✅ 프론트엔드(Next.js) A–Z
+
+### A. App Router 구조 설계
+
+- `app/brand/[slug]/page.tsx` (메뉴 리스트)
+- `app/brand/[slug]/menu/[id]/page.tsx` (메뉴 상세)
+- `app/brand/[slug]/stores/page.tsx` (매장 찾기)
+- `app/board/page.tsx`, `app/board/[id]/page.tsx`, `app/board/new/page.tsx`
+
+### B. Brand Header(브랜드 탭) UI
+
+- 헤더에 브랜드 로고/텍스트 탭 고정
+- 클릭 시 라우팅: `/brand/mcdonalds`, `/brand/burgerking`…
+
+### C. Client/Server Component 분리
+
+- 메뉴 리스트/상세 데이터는 Server Component에서 fetch(SSR)
+- 지도/위치 권한은 Client Component에서 처리
+
+### D. Data Fetch 전략
+
+- Next → Nest API 호출
+- `fetch('/api/...')` 대신 “Nest 서버 baseURL” 환경변수 분리
+- 캐싱 전략: 메뉴 리스트는 `revalidate` 고려(데이터 자주 안 바뀜)
+
+### E. Error/Empty 상태 UX
+
+- 브랜드에 메뉴가 없을 때 “준비 중”
+- API 오류 시 재시도 버튼/에러 토스트
+
+### F. Filter/Sort(옵션)
+
+- 카테고리(버거/치킨/사이드/음료)
+- 정렬(칼로리 낮은순/높은순)
+
+### G. Guest Mode UX
+
+- 게시판 접근 시: 글 목록/상세는 가능
+- 글쓰기/댓글 영역은 “로그인 필요” CTA 표시
+
+### H. Hamburger Menu UI 컴포넌트
+
+- `MenuCard`: 이미지/이름/칼로리/나트륨 등 핵심값
+- `NutritionTable`: 상세 영양성분 표
+- `SourceLink`: “출처 보기”
+
+### I. Image 최적화
+
+- 외부 이미지 도메인 사용 시 `next.config` 이미지 도메인 허용
+- 썸네일/상세 이미지 fallback 처리
+
+### J. JWT 인증 상태 처리
+
+- 로그인 성공 후 accessToken 저장 방식 결정
+    - 추천: **HttpOnly Cookie**(보안 좋음)
+- 프론트는 `/auth/me` 호출로 로그인 상태 확인
+
+### K. Kakao Login UI
+
+- “카카오로 로그인” 버튼
+- 로그인 상태면 프로필/로그아웃 버튼 노출
+
+### L. Location Permission Flow
+
+- “내 주변 매장 찾기” 버튼 클릭 시에만 권한 요청
+- 권한 거부 시: 수동 검색(옵션) 또는 안내 문구
+
+### M. Map UI(카카오 지도 SDK)
+
+- 지도 영역 + 오른쪽 리스트(반응형: 모바일은 토글/바텀시트)
+- 마커 클릭 ↔ 리스트 하이라이트 동기화
+
+### N. Navigation & Sidebar(오른쪽 사이드바)
+
+- 로그인 영역(프로필/버튼)
+- 게시판 버튼
+- (옵션) 최근 본 메뉴, 즐겨찾기(추후 확장)
+
+### O. Optimistic UI(게시판/댓글)
+
+- 댓글 등록 후 즉시 반영(실패 시 롤백)
+
+### P. Pagination/Infinite Scroll
+
+- 메뉴 리스트/게시글 목록에 페이지네이션 적용(기본 20개)
+
+### Q. Query Params 설계
+
+- `/brand/[slug]?category=burger&sort=kcal_asc`
+- `/board?page=1`
+
+### R. Responsive Design
+
+- Desktop: 헤더 + 사이드바 + 본문
+- Mobile: 사이드바를 drawer로 변경
+
+### S. State Management
+
+- 간단: React Query(TanStack Query) 추천(서버 상태 캐싱/갱신)
+- UI 상태는 zustand optional
+
+### T. Toast/Modal 공통 컴포넌트
+
+- 로그인 필요/삭제 확인/에러 알림
+
+### U. UI 라이브러리 선택
+
+- Tailwind + shadcn/ui(추천) 또는 MUI
+- 카드/탭/다이얼로그/드로어 빠르게 구성
+
+### V. Validation(글 작성/댓글)
+
+- 글 제목/본문 최소 글자수
+- XSS 대비: 렌더링 시 escape 처리(마크다운 쓸 거면 sanitize)
+
+### W. Web Vitals/성능
+
+- 이미지 lazy
+- 지도 페이지는 dynamic import로 분리(초기 번들 줄이기)
+
+### X. eXperience(접근성)
+
+- 탭 이동, 버튼 aria-label
+- 지도 없이도 리스트는 확인 가능하게
+
+### Y. Your Analytics(옵션)
+
+- 브랜드별 클릭/검색 횟수(로그 남기기)
+- 포폴에서 임팩트 큼
+
+### Z. Zero-downtime 배포 고려(옵션)
+
+- Vercel 배포 시 env 관리
+- API baseURL 환경별 분리(dev/prod)
+
+---
+
+## ✅ 백엔드(Nest.js) A–Z
+
+### A. Auth (Kakao OAuth) 설계
+
+- `/auth/kakao` (인가 코드 받기)
+- `/auth/kakao/callback` (토큰 교환 → 우리 JWT 발급)
+- `/auth/me` (내 정보)
+- `/auth/logout` (쿠키 제거)
+
+### B. Board 도메인 설계
+
+- 게시글(Post) CRUD
+- 댓글(Comment) CRUD
+- 권한: 작성자만 수정/삭제
+
+### C. CORS/보안 기본 세팅
+
+- 프론트 도메인만 허용
+- 쿠키 기반이면 `credentials: true` 세팅
+
+### D. Database 스키마(권장)
+
+- `User` (kakaoId, nickname, profileImage, role)
+- `Brand` (slug, name, logoUrl)
+- `MenuItem` (brandId, name, category, imageUrl, detailUrl, isActive)
+- `Nutrition` (menuItemId, kcal, protein, sodium, sugar… nullable)
+- `Post` (userId, title, content)
+- `Comment` (postId, userId, content)
+- `IngestLog` (brandId, fetchedAt, status, changedCount, error)
+
+### E. Endpoints 설계(필수)
+
+- 브랜드/메뉴
+    - `GET /brands`
+    - `GET /brands/:slug/menu-items`
+    - `GET /menu-items/:id`
+- 매장찾기(카카오 로컬 프록시)
+    - `GET /stores/search?brandSlug=...&lat=...&lng=...&radius=...`
+- 게시판
+    - `GET /posts`
+    - `GET /posts/:id`
+    - `POST /posts` (auth)
+    - `PATCH /posts/:id` (auth)
+    - `DELETE /posts/:id` (auth)
+    - `POST /posts/:id/comments` (auth)
+    - `PATCH /comments/:id` (auth)
+    - `DELETE /comments/:id` (auth)
+
+### F. Fetch/Proxy: 카카오 로컬 API 호출
+
+- 서버에서 호출(키 노출 방지)
+- 쿼리 구성:
+    - brandSlug → 검색 키워드(예: “버거킹”)
+    - lat/lng + radius
+- 응답은 프론트에 필요한 형태로만 리턴(place_url 포함)
+
+### G. Guest 접근 제어 정책
+
+- `GET /posts`, `GET /posts/:id`는 공개
+- 나머지는 Guard로 보호
+
+### H. HTTPOnly Cookie 기반 JWT 권장
+
+- accessToken 짧게, refreshToken 길게(옵션)
+- 단순 버전: accessToken만으로 시작 가능(개인 프로젝트)
+
+### I. Ingest(수집/정제) 파이프라인(핵심)
+
+- 목표: 브랜드 사이트 → 정제 → 우리 DB
+- 운영 형태: **관리자만 실행 가능한 “수집 실행”**
+    - `POST /admin/ingest/:brandSlug/run`
+
+### J. Job(배치) 방식
+
+- 초기: 수동 실행(버튼/엔드포인트)
+- 고도화: schedule(Cron)로 주 1회 실행(옵션)
+
+### K. Key/Secret 관리
+
+- `KAKAO_REST_API_KEY`, `KAKAO_REDIRECT_URI`
+- `KAKAO_LOCAL_API_KEY`
+- JWT secret
+- 모두 `.env` + 배포 환경변수로 관리
+
+### L. Logging/Monitoring
+
+- ingest 실행 로그 저장(IngestLog)
+- kakao api 에러/레이트리밋 로그
+
+### M. Menu 데이터 정규화 규칙
+
+- 단위 통일(kcal, g, mg)
+- 쉼표 제거(“1,230” → 1230)
+- 누락 값 null 처리
+- 메뉴 고유키 전략: `(brandId + detailUrl)` 우선
+
+### N. Nest Module 분리
+
+- `AuthModule`, `UsersModule`
+- `BrandsModule`, `MenuItemsModule`, `NutritionModule`
+- `StoresModule` (카카오 로컬)
+- `PostsModule`, `CommentsModule`
+- `AdminIngestModule`
+
+### O. ORM 선택
+
+- Prisma 또는 TypeORM 중 하나 고정(개인 프로젝트면 Prisma 추천 많음)
+- 마이그레이션/시드 데이터(브랜드 목록) 포함
+
+### P. Permission(권한)
+
+- 글/댓글은 작성자만 수정/삭제
+- Admin 전용: ingest 실행, 브랜드 관리(옵션)
+
+### Q. Query 성능
+
+- `GET /brands/:slug/menu-items`는 brandId 인덱스
+- 게시글 목록은 page/limit + 최신순
+
+### R. Rate Limit / Abuse 대응(옵션)
+
+- 댓글 도배 방지: 간단한 rate-limit
+- 카카오 로컬 API는 서버에서 요청 수 제한
+
+### S. Sanitization/XSS/Validation
+
+- DTO validation(class-validator)
+- content 저장/렌더링 정책 정하기(plain text vs markdown)
+
+### T. Test 전략(옵션)
+
+- e2e: auth/게시판 주요 흐름
+- ingest parser 단위 테스트(HTML 샘플로)
+
+### U. Upload/Images(원칙)
+
+- 이미지 자체 업로드는 안 하고 **원본 imageUrl 저장**(리스크↓)
+- 추후 필요하면 Supabase/S3 연결(옵션)
+
+### V. Versioning
+
+- `/api/v1` 프리픽스(옵션)
+- DTO/Response 형태 문서화(Swagger)
+
+### W. Webhook/알림(옵션)
+
+- ingest 결과 changedCount가 크면 알림(슬랙 등)
+
+### X. eXport(옵션)
+
+- 메뉴 목록 CSV 내보내기(관리자 기능)
+- 데이터 관리 편해짐
+
+### Y. YAGNI 적용
+
+- MVP에서 즐겨찾기/추천/태그는 나중에
+- 핵심 플로우 완성 우선
+
+### Z. Zero-trust 기본
+
+- 모든 POST/PATCH/DELETE는 Guard + 소유권 체크
+- 외부 API 키는 절대 프론트 노출 금지
+
+---
+
+# 4. MVP 개발 순서(가장 안전한 진행)
+
+1. **DB 스키마 + 브랜드 시드(7개) + 메뉴 조회 API**
+2. Next에서 **브랜드 탭 → 메뉴 리스트/상세 화면**
+3. **카카오 로그인 + /auth/me로 로그인 상태 유지**
+4. **게시판(글/댓글) + 게스트 조회 제한**
+5. **매장찾기(지도/리스트 + place_url 링크)**
+6. (옵션) 관리자 ingest(수집/정제) 자동화 고도화
+
+---
+
+# 5. “수집/정제 → DB” 구현 방식(너가 선택한 핵심)
+
+- 초기엔 **관리자 CSV 업로드**로 데이터 넣고 MVP 완성
+- 다음 단계로 브랜드별 파서(스크래퍼) 붙이기
+- 최종적으로 “수집 실행” 버튼/엔드포인트 + IngestLog 운영
