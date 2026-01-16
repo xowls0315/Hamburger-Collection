@@ -1,0 +1,265 @@
+{
+  "brandSlug": "mcdonalds",
+  "menuItems": [
+    {
+      "name": "행운버거 골드",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 530,
+        "saturatedFat": 7.0,
+        "sugar": 15.0,
+        "protein": 24.0,
+        "sodium": 1211
+      }
+    },
+    {
+      "name": "빅맥",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 582,
+        "saturatedFat": 11.0,
+        "sugar": 8.0,
+        "protein": 27.0,
+        "sodium": 902
+      }
+    },
+    {
+      "name": "맥스파이시 상하이 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 501,
+        "saturatedFat": 2.6,
+        "sugar": 9.0,
+        "protein": 24.0,
+        "sodium": 1102
+      }
+    },
+    {
+      "name": "1955 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 572,
+        "saturatedFat": 10.0,
+        "sugar": 15.0,
+        "protein": 29.0,
+        "sodium": 930
+      }
+    },
+    {
+      "name": "더블 쿼터 파운더 치즈",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 769,
+        "saturatedFat": 20.0,
+        "sugar": 10.0,
+        "protein": 50.0,
+        "sodium": 1150
+      }
+    },
+    {
+      "name": "쿼터파운더 치즈",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 536,
+        "saturatedFat": 13.0,
+        "sugar": 10.0,
+        "protein": 31.0,
+        "sodium": 966
+      }
+    },
+    {
+      "name": "맥크리스피 디럭스 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 614,
+        "saturatedFat": 4.7,
+        "sugar": 15.0,
+        "protein": 23.0,
+        "sodium": 1334
+      }
+    },
+    {
+      "name": "맥크리스피 클래식 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 603,
+        "saturatedFat": 4.7,
+        "sugar": 14.0,
+        "protein": 23.0,
+        "sodium": 1332
+      }
+    },
+    {
+      "name": "베이컨 토마토 디럭스",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 570,
+        "saturatedFat": 11.0,
+        "sugar": 14.0,
+        "protein": 29.0,
+        "sodium": 933
+      }
+    },
+    {
+      "name": "맥치킨 모짜렐라",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 743,
+        "saturatedFat": 7.0,
+        "sugar": 16.0,
+        "protein": 31.0,
+        "sodium": 1742
+      }
+    },
+    {
+      "name": "맥치킨",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 523,
+        "saturatedFat": 3.2,
+        "sugar": 7.0,
+        "protein": 21.0,
+        "sodium": 1084
+      }
+    },
+    {
+      "name": "더블 불고기 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 635,
+        "saturatedFat": 13.0,
+        "sugar": 15.0,
+        "protein": 26.0,
+        "sodium": 997
+      }
+    },
+    {
+      "name": "불고기 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 409,
+        "saturatedFat": 6.0,
+        "sugar": 14.0,
+        "protein": 14.0,
+        "sodium": 670
+      }
+    },
+    {
+      "name": "슈비 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 540,
+        "saturatedFat": 5.0,
+        "sugar": 15.0,
+        "protein": 20.0,
+        "sodium": 1001
+      }
+    },
+    {
+      "name": "슈슈 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 409,
+        "saturatedFat": 1.7,
+        "sugar": 12.0,
+        "protein": 13.0,
+        "sodium": 808
+      }
+    },
+    {
+      "name": "토마토 치즈 비프 버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 403,
+        "saturatedFat": 7.0,
+        "sugar": 11.0,
+        "protein": 18.0,
+        "sodium": 682
+      }
+    },
+    {
+      "name": "트리플 치즈버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 640,
+        "saturatedFat": 17.0,
+        "sugar": 8.0,
+        "protein": 38.0,
+        "sodium": 1151
+      }
+    },
+    {
+      "name": "더블 치즈버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 479,
+        "saturatedFat": 12.0,
+        "sugar": 8.0,
+        "protein": 27.0,
+        "sodium": 896
+      }
+    },
+    {
+      "name": "치즈버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 318,
+        "saturatedFat": 6.0,
+        "sugar": 7.0,
+        "protein": 16.0,
+        "sodium": 612
+      }
+    },
+    {
+      "name": "햄버거",
+      "category": "burger",
+      "isActive": true,
+      "detailUrl": "https://www.mcdonalds.co.kr/kor/menu/information/nutrition",
+      "nutrition": {
+        "kcal": 266,
+        "saturatedFat": 3.5,
+        "sugar": 7.0,
+        "protein": 13.0,
+        "sodium": 450
+      }
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+{
+  "brandSlug": "mcdonalds",
+  "menuItems": [
+    {
+      "name": "행운버거 골드",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "빅맥",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "맥스파이시 상하이 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "1955 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "더블 쿼터 파운더 치즈",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "쿼터파운더 치즈",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "맥크리스피 디럭스 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "맥크리스피 클래식 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "베이컨 토마토 디럭스",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "맥치킨 모짜렐라",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "맥치킨",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "더블 불고기 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "불고기 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "슈비 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "슈슈 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "토마토 치즈 비프 버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "트리플 치즈버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "더블 치즈버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "치즈버거",
+      "category": "burger",
+      "isActive": true
+    },
+    {
+      "name": "햄버거",
+      "category": "burger",
+      "isActive": true
+    }
+  ]
+}

@@ -31,6 +31,9 @@ export class Nutrition {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   fat: number;
 
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
+  saturatedFat: number; // 포화지방 (g)
+
   @Column({ type: 'int', nullable: true })
   sodium: number; // mg
 
