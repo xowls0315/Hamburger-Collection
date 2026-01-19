@@ -16,15 +16,7 @@ export class NutritionDto {
 
   @IsOptional()
   @IsNumber()
-  carbohydrate?: number;
-
-  @IsOptional()
-  @IsNumber()
   protein?: number;
-
-  @IsOptional()
-  @IsNumber()
-  fat?: number;
 
   @IsOptional()
   @IsNumber()

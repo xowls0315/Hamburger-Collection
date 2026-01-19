@@ -26,9 +26,27 @@ export class AdminController {
     return await this.adminService.createMenuItem(brandSlug, createMenuItemDto);
   }
 
-  // FatSecret에서 탄수화물/지방 정보 업데이트
-  @Post('nutrition/update-from-fatsecret/:brandSlug')
-  async updateNutritionFromFatSecret(@Param('brandSlug') brandSlug: string) {
-    return await this.adminService.updateNutritionFromFatSecret(brandSlug);
+  // 맥도날드 메뉴 이미지 URL 업데이트
+  @Post('menu-items/mcdonalds/update-images')
+  async updateImageUrlsFromMcDonalds() {
+    return await this.adminService.updateImageUrlsFromMcDonalds();
+  }
+
+  // 버거킹 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/burgerking/scrape')
+  async scrapeBurgerKingMenus() {
+    return await this.adminService.scrapeBurgerKingMenus();
+  }
+
+  // 롯데리아 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/lotteria/scrape')
+  async scrapeLotteriaMenus() {
+    return await this.adminService.scrapeLotteriaMenus();
+  }
+
+  // 맘스터치 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/momstouch/scrape')
+  async scrapeMomstouchMenus() {
+    return await this.adminService.scrapeMomstouchMenus();
   }
 }
