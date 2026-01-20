@@ -6,6 +6,10 @@ import { IngestLog } from './entities/ingest-log.entity';
 import { MenuItem } from '../menu-items/entities/menu-item.entity';
 import { Nutrition } from '../nutrition/entities/nutrition.entity';
 import { BrandsModule } from '../brands/brands.module';
+import { McDonaldsScraperService } from './scrapers/mcdonalds-scraper.service';
+import { BurgerKingScraperService } from './scrapers/burgerking-scraper.service';
+import { LotteriaScraperService } from './scrapers/lotteria-scraper.service';
+import { MomstouchScraperService } from './scrapers/momstouch-scraper.service';
 
 @Module({
   imports: [
@@ -13,6 +17,12 @@ import { BrandsModule } from '../brands/brands.module';
     BrandsModule,
   ],
   controllers: [AdminController],
-  providers: [AdminService],
+  providers: [
+    AdminService,
+    McDonaldsScraperService,
+    BurgerKingScraperService,
+    LotteriaScraperService,
+    MomstouchScraperService,
+  ],
 })
 export class AdminModule {}

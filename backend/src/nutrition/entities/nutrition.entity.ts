@@ -19,7 +19,7 @@ export class Nutrition {
   @Column({ name: 'menu_item_id', unique: true })
   menuItemId: string;
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   kcal: number;
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
@@ -28,7 +28,7 @@ export class Nutrition {
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   saturatedFat: number; // 포화지방 (g)
 
-  @Column({ type: 'int', nullable: true })
+  @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })
   sodium: number; // mg
 
   @Column({ type: 'decimal', precision: 10, scale: 2, nullable: true })

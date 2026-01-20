@@ -1,35 +1,16 @@
-import { Controller, Post, Param, Body, UseGuards } from '@nestjs/common';
+import { Controller, Post, UseGuards } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import {
-  CreateMenuItemDto,
-  BulkCreateMenuItemDto,
-} from './dto/create-menu-item.dto';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard) // 관리자 기능은 인증 필요
 export class AdminController {
   constructor(private readonly adminService: AdminService) {}
 
-  // 일괄 메뉴 아이템 추가 (더 구체적인 라우트를 먼저 정의)
-  @Post('menu-items/bulk')
-  async bulkCreateMenuItems(@Body() bulkCreateDto: BulkCreateMenuItemDto) {
-    return await this.adminService.bulkCreateMenuItems(bulkCreateDto);
-  }
-
-  // 단일 메뉴 아이템 추가
-  @Post('menu-items/:brandSlug')
-  async createMenuItem(
-    @Param('brandSlug') brandSlug: string,
-    @Body() createMenuItemDto: CreateMenuItemDto,
-  ) {
-    return await this.adminService.createMenuItem(brandSlug, createMenuItemDto);
-  }
-
-  // 맥도날드 메뉴 이미지 URL 업데이트
-  @Post('menu-items/mcdonalds/update-images')
-  async updateImageUrlsFromMcDonalds() {
-    return await this.adminService.updateImageUrlsFromMcDonalds();
+  // 맥도날드 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/mcdonalds/scrape')
+  async scrapeMcDonaldsMenus() {
+    return await this.adminService.scrapeMcDonaldsMenus();
   }
 
   // 버거킹 메뉴 수집 (이미지 + 영양성분)
@@ -48,5 +29,23 @@ export class AdminController {
   @Post('menu-items/momstouch/scrape')
   async scrapeMomstouchMenus() {
     return await this.adminService.scrapeMomstouchMenus();
+  }
+
+  // KFC 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/kfc/scrape')
+  async scrapeKfcMenus() {
+    return await this.adminService.scrapeKfcMenus();
+  }
+
+  // 노브랜드 버거 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/nobrand/scrape')
+  async scrapeNobrandMenus() {
+    return await this.adminService.scrapeNobrandMenus();
+  }
+
+  // 프랭크 버거 메뉴 수집 (이미지 + 영양성분)
+  @Post('menu-items/frank/scrape')
+  async scrapeFrankMenus() {
+    return await this.adminService.scrapeFrankMenus();
   }
 }
