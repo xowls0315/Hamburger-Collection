@@ -47,8 +47,10 @@ export class MomstouchScraperService extends BaseScraperService {
     let errors = 0;
     const errorDetails: string[] = [];
 
-    // 맘스터치 버거 메뉴 목록 (사용자가 제공한 29개)
+    // 맘스터치 버거 메뉴 목록 (사용자가 제공한 31개)
     const momstouchMenus = [
+      '불대박직화불고기버거',
+      '대박직화불고기버거',
       '슈퍼싸이더블Kick',
       '에드워드 리 K싸이버거',
       '에드워드 리 K비프버거',
@@ -564,6 +566,20 @@ export class MomstouchScraperService extends BaseScraperService {
         sodium: 939,
         sugar: 13,
         saturatedFat: 4.2,
+      },
+      불대박직화불고기버거: {
+        kcal: 448,
+        protein: 21,
+        sodium: 794,
+        sugar: 16,
+        saturatedFat: 7.7,
+      },
+      대박직화불고기버거: {
+        kcal: 470,
+        protein: 28,
+        sodium: 900,
+        sugar: 15,
+        saturatedFat: 8.5,
       },
     };
 
