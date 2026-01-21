@@ -84,10 +84,15 @@ export class MomstouchScraperService extends BaseScraperService {
 
     console.log(`📋 총 ${momstouchMenus.length}개의 메뉴를 처리합니다.`);
 
-    // 메뉴 정보 맵 (이름 -> { imageUrl, detailUrl, menuId })
+    // 메뉴 정보 맵 (이름 -> { imageUrl, detailUrl, menuId, description })
     const menuDataMap = new Map<
       string,
-      { imageUrl?: string; detailUrl?: string; menuId?: string }
+      {
+        imageUrl?: string;
+        detailUrl?: string;
+        menuId?: string;
+        description?: string;
+      }
     >();
 
     // 1단계: 메뉴 목록 페이지(3페이지)에서 메뉴 정보 추출
@@ -349,6 +354,24 @@ export class MomstouchScraperService extends BaseScraperService {
               `    📊 영양성분 이미지: ${nutritionImageUrl.substring(0, 80)}...`,
             );
           }
+        }
+
+        // description 추출 (p.description 요소에서)
+        const $description = $detail('p.description');
+        if ($description.length > 0) {
+          let descriptionText = $description.text().trim();
+          if (descriptionText) {
+            // 여러 공백을 하나로 정리
+            descriptionText = descriptionText.replace(/\s+/g, ' ').trim();
+            menuData.description = descriptionText;
+            console.log(
+              `    📝 description 발견: ${descriptionText.substring(0, 60)}...`,
+            );
+          } else {
+            console.log(`    ⚠️ description을 찾을 수 없음`);
+          }
+        } else {
+          console.log(`    ⚠️ description 요소를 찾을 수 없음`);
         }
       } catch (error: any) {
         console.error(`    ⚠️ 상세 페이지 처리 실패: ${error.message}`);
@@ -628,6 +651,9 @@ export class MomstouchScraperService extends BaseScraperService {
           if (menuData.detailUrl) {
             existingMenuItem.detailUrl = menuData.detailUrl;
           }
+          if (menuData.description) {
+            existingMenuItem.description = menuData.description;
+          }
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -663,6 +689,7 @@ export class MomstouchScraperService extends BaseScraperService {
             category: 'burger',
             imageUrl: menuData.imageUrl,
             detailUrl: menuData.detailUrl,
+            description: menuData.description || undefined,
             isActive: true,
           });
 

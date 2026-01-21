@@ -279,6 +279,93 @@ export class McDonaldsScraperService extends BaseScraperService {
       console.log(`  - "${normalizedName}" -> "${data.originalName}"`);
     }
 
+    // description 추출 함수
+    const extractDescription = async (
+      detailUrl: string,
+    ): Promise<string | null> => {
+      try {
+        await this.delay(500); // 서버 부하 방지
+
+        const response = await axios.get<string>(detailUrl, {
+          headers: {
+            'User-Agent':
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            Accept:
+              'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+          },
+        });
+
+        const $ = cheerio.load(String(response.data));
+
+        // description 추출: 여러 방법 시도
+        let descriptionEl = $('p.text-20.mt-2').first();
+
+        // 대체 방법 1: 클래스에 "text-20"과 "leading"이 포함된 p 태그
+        if (descriptionEl.length === 0) {
+          $('p').each((i, el) => {
+            const classes = $(el).attr('class') || '';
+            if (
+              classes.includes('text-20') &&
+              classes.includes('mt-2') &&
+              descriptionEl.length === 0
+            ) {
+              descriptionEl = $(el);
+              return false; // break
+            }
+          });
+        }
+
+        // 대체 방법 2: h1 다음에 오는 p 태그 중 긴 텍스트
+        if (descriptionEl.length === 0) {
+          const h1 = $('h1').first();
+          if (h1.length > 0) {
+            const nextP = h1.nextAll('p').first();
+            if (nextP.length > 0 && nextP.text().trim().length > 20) {
+              descriptionEl = nextP;
+            }
+          }
+        }
+
+        // 대체 방법 3: detail-images 다음에 오는 p 태그
+        if (descriptionEl.length === 0) {
+          const detailImages = $('.detail-images').first();
+          if (detailImages.length > 0) {
+            const nextP = detailImages.nextAll('p').first();
+            if (nextP.length > 0 && nextP.text().trim().length > 20) {
+              descriptionEl = nextP;
+            }
+          }
+        }
+
+        if (descriptionEl.length === 0) {
+          return null;
+        }
+
+        let description = descriptionEl.html() || '';
+        // <br> 태그를 공백으로 변환
+        description = description.replace(/<br\s*\/?>/gi, ' ');
+        // HTML 태그 제거 (sub 태그는 유지하고 나중에 제거)
+        description = description.replace(/<sub[^>]*>.*?<\/sub>/gi, '');
+        description = description.replace(/<[^>]+>/g, '');
+        // 여러 공백을 하나로
+        description = description.replace(/\s+/g, ' ').trim();
+
+        // "*"로 시작하는 부분 제거 (예: "*판매 시간: 10:30AM~4AM")
+        if (description.includes('*')) {
+          const asteriskIndex = description.indexOf('*');
+          description = description.substring(0, asteriskIndex).trim();
+        }
+
+        return description || null;
+      } catch (error: unknown) {
+        console.error(
+          `  ⚠️ description 추출 실패 (${detailUrl}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return null;
+      }
+    };
+
     for (const targetMenu of targetMenus) {
       try {
         const normalizedTarget = normalizeMenuName(targetMenu);
@@ -302,6 +389,20 @@ export class McDonaldsScraperService extends BaseScraperService {
           );
         }
 
+        // description 추출 (detailUrl이 있는 경우)
+        let description: string | null = null;
+        if (matchedData?.detailUrl) {
+          console.log(`  📝 description 추출 중: ${matchedData.detailUrl}`);
+          description = await extractDescription(matchedData.detailUrl);
+          if (description) {
+            console.log(
+              `  ✅ description 추출 성공: ${description.substring(0, 50)}...`,
+            );
+          } else {
+            console.log(`  ⚠️ description 추출 실패`);
+          }
+        }
+
         // DB에서 기존 메뉴 확인
         const existingMenuItem = await this.menuItemsRepository.findOne({
           where: {
@@ -320,6 +421,9 @@ export class McDonaldsScraperService extends BaseScraperService {
             if (matchedData.detailUrl) {
               existingMenuItem.detailUrl = matchedData.detailUrl;
             }
+            if (description) {
+              existingMenuItem.description = description;
+            }
             await this.menuItemsRepository.save(existingMenuItem);
             updated++;
             console.log(`  ✅ 업데이트: ${targetMenu}`);
@@ -336,6 +440,7 @@ export class McDonaldsScraperService extends BaseScraperService {
               category: 'burger',
               imageUrl: matchedData.imageUrl,
               detailUrl: matchedData.detailUrl,
+              description: description || undefined,
               isActive: true,
             });
 

@@ -631,6 +631,58 @@ export class BurgerKingScraperService extends BaseScraperService {
     }
     }
 
+    // description 추출 함수 (Puppeteer 사용 - Vue.js SPA이므로)
+    const extractDescription = async (
+      detailUrl: string,
+    ): Promise<string | null> => {
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      });
+
+      try {
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        );
+
+        await page.goto(detailUrl, {
+          waitUntil: 'networkidle2',
+          timeout: 30000,
+        });
+
+        // Vue 앱 로드 대기
+        await this.delay(2000);
+
+        // description 추출: class="description"인 div 안의 span 텍스트
+        const description = await page.evaluate(() => {
+          // 방법 1: div.description span
+          const descriptionEl = document.querySelector('div.description span');
+          if (descriptionEl) {
+            return descriptionEl.textContent?.trim() || null;
+          }
+
+          // 방법 2: div.description 직접 텍스트
+          const altDescriptionEl = document.querySelector('div.description');
+          if (altDescriptionEl) {
+            return altDescriptionEl.textContent?.trim() || null;
+          }
+
+          return null;
+        });
+
+        await page.close();
+        return description;
+      } catch (error: unknown) {
+        console.error(
+          `  ⚠️ description 추출 실패 (${detailUrl}): ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return null;
+      } finally {
+        await browser.close();
+      }
+    };
+
     // 각 타겟 메뉴에 대해 DB 저장/업데이트
     const savedMenuItems = new Map<string, MenuItem>();
 
@@ -644,6 +696,20 @@ export class BurgerKingScraperService extends BaseScraperService {
           errors++;
           errorDetails.push(`${targetMenu}: 메인 페이지에서 찾을 수 없음`);
           continue;
+        }
+
+        // description 추출 (detailUrl이 있는 경우)
+        let description: string | null = null;
+        if (menuData.detailUrl) {
+          console.log(`  📝 description 추출 중: ${menuData.detailUrl}`);
+          description = await extractDescription(menuData.detailUrl);
+          if (description) {
+            console.log(
+              `  ✅ description 추출 성공: ${description.substring(0, 50)}...`,
+            );
+          } else {
+            console.log(`  ⚠️ description 추출 실패`);
+          }
         }
 
         // DB에서 기존 메뉴 확인
@@ -663,6 +729,9 @@ export class BurgerKingScraperService extends BaseScraperService {
           if (menuData.detailUrl) {
             menuItem.detailUrl = menuData.detailUrl;
           }
+          if (description) {
+            menuItem.description = description;
+          }
           await this.menuItemsRepository.save(menuItem);
           updated++;
           console.log(`  ✅ 업데이트: ${targetMenu}`);
@@ -675,6 +744,7 @@ export class BurgerKingScraperService extends BaseScraperService {
             category: 'burger',
             imageUrl: menuData.imageUrl,
             detailUrl: menuData.detailUrl || undefined,
+            description: description || undefined,
             isActive: true,
           });
 

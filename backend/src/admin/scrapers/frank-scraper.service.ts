@@ -80,7 +80,7 @@ export class FrankScraperService extends BaseScraperService {
     // Puppeteer로 메인 페이지에서 메뉴 정보 추출
     const menuDataMap = new Map<
       string,
-      { imageUrl?: string; detailUrl?: string }
+      { imageUrl?: string; detailUrl?: string; description?: string }
     >();
 
     try {
@@ -111,6 +111,7 @@ export class FrankScraperService extends BaseScraperService {
           const results: Array<{
             name: string;
             imageUrl?: string;
+            description?: string;
           }> = [];
 
           const normalizeName = (name: string): string => {
@@ -176,9 +177,27 @@ export class FrankScraperService extends BaseScraperService {
                 }
               }
 
+              // description 추출 (p.stext 요소에서)
+              let description = '';
+              const stextEl = slide.querySelector('p.stext');
+              if (stextEl) {
+                // <br> 태그를 공백으로 변환하고 텍스트 추출
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = stextEl.innerHTML;
+                // <br> 태그를 공백으로 변환
+                const brElements = tempDiv.querySelectorAll('br');
+                brElements.forEach((br) => {
+                  br.replaceWith(' ');
+                });
+                description = tempDiv.textContent || tempDiv.innerText || '';
+                // 여러 공백을 하나로 정리
+                description = description.replace(/\s+/g, ' ').trim();
+              }
+
               results.push({
                 name: menuName,
                 imageUrl: imageUrl || undefined,
+                description: description || undefined,
               });
             }
           });
@@ -190,7 +209,11 @@ export class FrankScraperService extends BaseScraperService {
 
         // 메뉴 데이터 맵에 저장 (각 타겟 메뉴에 대해 가장 정확한 스크랩된 메뉴를 찾음)
         for (const targetMenu of frankMenus) {
-          let bestMatch: { name: string; imageUrl?: string } | null = null;
+          let bestMatch: {
+            name: string;
+            imageUrl?: string;
+            description?: string;
+          } | null = null;
           let bestScore = 0;
           const normalizedTarget = this.normalizeMenuName(targetMenu);
 
@@ -255,10 +278,11 @@ export class FrankScraperService extends BaseScraperService {
             menuDataMap.set(targetMenu, {
               imageUrl: bestMatch.imageUrl,
               detailUrl: `https://frankburger.co.kr/html/menu_1.html`,
+              description: bestMatch.description,
             });
 
             console.log(
-              `  ✅ 발견: "${targetMenu}" (원본 이름: "${bestMatch.name}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}`,
+              `  ✅ 발견: "${targetMenu}" (원본 이름: "${bestMatch.name}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}${bestMatch.description ? ` - description: ${bestMatch.description.substring(0, 40)}...` : ''}`,
             );
           } else {
             console.log(
@@ -455,6 +479,9 @@ export class FrankScraperService extends BaseScraperService {
           if (menuData.detailUrl) {
             existingMenuItem.detailUrl = menuData.detailUrl;
           }
+          if (menuData.description) {
+            existingMenuItem.description = menuData.description;
+          }
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -490,6 +517,7 @@ export class FrankScraperService extends BaseScraperService {
             category: 'burger',
             imageUrl: menuData.imageUrl,
             detailUrl: menuData.detailUrl,
+            description: menuData.description || undefined,
             isActive: true,
           });
 

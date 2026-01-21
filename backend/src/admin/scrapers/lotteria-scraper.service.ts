@@ -86,7 +86,12 @@ export class LotteriaScraperService extends BaseScraperService {
     // Puppeteer로 메인 페이지에서 메뉴 정보 추출
     const menuDataMap = new Map<
       string,
-      { productId: string; imageUrl?: string; detailUrl?: string }
+      {
+        productId: string;
+        imageUrl?: string;
+        detailUrl?: string;
+        description?: string;
+      }
     >();
 
     try {
@@ -211,33 +216,58 @@ export class LotteriaScraperService extends BaseScraperService {
 
             await new Promise((resolve) => setTimeout(resolve, 2000));
 
-            // 이미지 URL 추출 (background-image 스타일에서)
-            const imageData = await page.evaluate(() => {
-              const thumbImg = document.querySelector('div.thumb-img');
-              if (!thumbImg) return null;
+            // 이미지 URL 및 description 추출
+            const pageData = await page.evaluate(() => {
+              const result: {
+                imageUrl?: string;
+                description?: string;
+              } = {};
 
-              const style = thumbImg.getAttribute('style') || '';
-              const match = style.match(
-                /background-image:\s*url\(['"]?([^'"]+)['"]?\)/,
-              );
-              return match ? match[1] : null;
+              // 이미지 URL 추출 (background-image 스타일에서)
+              const thumbImg = document.querySelector('div.thumb-img');
+              if (thumbImg) {
+                const style = thumbImg.getAttribute('style') || '';
+                const match = style.match(
+                  /background-image:\s*url\(['"]?([^'"]+)['"]?\)/,
+                );
+                if (match) {
+                  result.imageUrl = match[1];
+                }
+              }
+
+              // description 추출 (p.btext 요소에서)
+              const descriptionEl = document.querySelector('p.btext');
+              if (descriptionEl) {
+                const descriptionText = descriptionEl.textContent?.trim() || '';
+                if (descriptionText) {
+                  result.description = descriptionText;
+                }
+              }
+
+              return result;
             });
 
-            if (imageData) {
-              menuDataMap.set(menuItem.name, {
-                productId: menuItem.productId,
-                imageUrl: imageData,
-                detailUrl,
-              });
+            menuDataMap.set(menuItem.name, {
+              productId: menuItem.productId,
+              imageUrl: pageData.imageUrl,
+              detailUrl,
+              description: pageData.description,
+            });
+
+            if (pageData.imageUrl) {
               console.log(
-                `    📷 이미지 URL 발견: ${imageData.substring(0, 80)}...`,
+                `    📷 이미지 URL 발견: ${pageData.imageUrl.substring(0, 80)}...`,
               );
             } else {
-              menuDataMap.set(menuItem.name, {
-                productId: menuItem.productId,
-                detailUrl,
-              });
               console.log(`    ⚠️ 이미지 URL을 찾을 수 없음`);
+            }
+
+            if (pageData.description) {
+              console.log(
+                `    📝 description 발견: ${pageData.description.substring(0, 60)}...`,
+              );
+            } else {
+              console.log(`    ⚠️ description을 찾을 수 없음`);
             }
           } catch (error: any) {
             console.log(`    ⚠️ 상세 페이지 처리 실패: ${error.message}`);
@@ -264,15 +294,40 @@ export class LotteriaScraperService extends BaseScraperService {
     const nutritionMap = new Map<string, any>();
 
     try {
-      const nutritionResponse = await axios.get(
-        'https://www.lotteeatz.com/upload/etc/ria/items.html',
-        {
-          headers: {
-            'User-Agent':
-              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          },
-        },
-      );
+      // 재시도 로직 (최대 3번 시도)
+      let nutritionResponse: any = null;
+      let retryCount = 0;
+      const maxRetries = 3;
+
+      while (retryCount < maxRetries) {
+        try {
+          nutritionResponse = await axios.get(
+            'https://www.lotteeatz.com/upload/etc/ria/items.html',
+            {
+              headers: {
+                'User-Agent':
+                  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              },
+              timeout: 30000, // 30초 타임아웃
+            },
+          );
+          console.log(`  ✅ 영양성분 페이지 접속 성공`);
+          break; // 성공하면 루프 종료
+        } catch (error: any) {
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            throw error; // 최대 재시도 횟수 초과 시 에러 throw
+          }
+          console.log(
+            `  ⚠️ 영양성분 페이지 접속 실패 (시도 ${retryCount}/${maxRetries}), 3초 후 재시도...`,
+          );
+          await this.delay(3000); // 3초 대기 후 재시도
+        }
+      }
+
+      if (!nutritionResponse || !nutritionResponse.data) {
+        throw new Error('영양성분 페이지 응답 데이터가 없습니다.');
+      }
 
       const $nutrition = cheerio.load(nutritionResponse.data);
 
@@ -611,6 +666,9 @@ export class LotteriaScraperService extends BaseScraperService {
           if (menuData.detailUrl) {
             existingMenuItem.detailUrl = menuData.detailUrl;
           }
+          if (menuData.description) {
+            existingMenuItem.description = menuData.description;
+          }
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -646,6 +704,7 @@ export class LotteriaScraperService extends BaseScraperService {
             category: 'burger',
             imageUrl: menuData.imageUrl,
             detailUrl: menuData.detailUrl,
+            description: menuData.description || undefined,
             isActive: true,
           });
 

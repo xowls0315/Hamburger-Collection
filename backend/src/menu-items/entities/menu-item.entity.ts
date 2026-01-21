@@ -35,6 +35,9 @@ export class MenuItem {
   @Column({ name: 'detail_url', nullable: true, length: 500 })
   detailUrl: string; // 원본 사이트 링크
 
+  @Column({ type: 'text', nullable: true })
+  description: string; // 메뉴 설명
+
   @Column({ name: 'is_active', default: true })
   isActive: boolean;
 

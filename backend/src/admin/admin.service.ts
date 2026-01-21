@@ -6,6 +6,7 @@ import { LotteriaScraperService } from './scrapers/lotteria-scraper.service';
 import { MomstouchScraperService } from './scrapers/momstouch-scraper.service';
 import { NobrandScraperService } from './scrapers/nobrand-scraper.service';
 import { FrankScraperService } from './scrapers/frank-scraper.service';
+import { KfcScraperService } from './scrapers/kfc-scraper.service';
 
 @Injectable()
 export class AdminService {
@@ -17,6 +18,7 @@ export class AdminService {
     private momstouchScraper: MomstouchScraperService,
     private nobrandScraper: NobrandScraperService,
     private frankScraper: FrankScraperService,
+    private kfcScraper: KfcScraperService,
   ) {}
 
   /**
@@ -116,23 +118,7 @@ export class AdminService {
     errors: number;
     errorDetails: string[];
   }> {
-    const brand = await this.brandsService.findOneBySlug('kfc');
-    if (!brand) {
-      throw new NotFoundException('KFC 브랜드를 찾을 수 없습니다.');
-    }
-
-    console.log(`\n🍔 KFC 메뉴 수집 시작...`);
-
-    // TODO: KFC 메뉴 스크래핑 로직 구현
-    return {
-      success: false,
-      brand: brand.name,
-      total: 0,
-      created: 0,
-      updated: 0,
-      errors: 0,
-      errorDetails: ['KFC 스크래핑 로직이 아직 구현되지 않았습니다.'],
-    };
+    return await this.kfcScraper.scrapeKfcMenus();
   }
 
   /**

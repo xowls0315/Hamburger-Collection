@@ -85,7 +85,7 @@ export class NobrandScraperService extends BaseScraperService {
     // Puppeteer로 메인 페이지에서 메뉴 정보 추출
     const menuDataMap = new Map<
       string,
-      { imageUrl?: string; detailUrl?: string }
+      { imageUrl?: string; detailUrl?: string; description?: string }
     >();
 
     try {
@@ -130,6 +130,7 @@ export class NobrandScraperService extends BaseScraperService {
           const results: Array<{
             name: string;
             imageUrl?: string;
+            description?: string;
           }> = [];
 
           // cate_218과 cate_246에서 메뉴 추출
@@ -188,9 +189,26 @@ export class NobrandScraperService extends BaseScraperService {
                   }
                 }
 
+                // description 추출 (버튼의 data-story 속성에서)
+                let description = '';
+                const buttonEl = item.querySelector('button.menu_anch');
+                if (buttonEl) {
+                  const dataStory = buttonEl.getAttribute('data-story') || '';
+                  if (dataStory) {
+                    // HTML 엔티티 디코딩
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = dataStory;
+                    // HTML 태그 제거하고 텍스트만 추출
+                    description = tempDiv.textContent || tempDiv.innerText || '';
+                    // 여러 공백을 하나로 정리
+                    description = description.replace(/\s+/g, ' ').trim();
+                  }
+                }
+
                 results.push({
                   name: menuName, // 전체 이름 저장 (나중에 매칭할 때 사용)
                   imageUrl: imageUrl || undefined,
+                  description: description || undefined,
                 });
               }
             });
@@ -204,7 +222,11 @@ export class NobrandScraperService extends BaseScraperService {
         // 메뉴 데이터 맵에 저장 (각 타겟 메뉴에 대해 가장 정확한 스크랩된 메뉴를 찾음)
         // 이렇게 하면 같은 스크랩된 메뉴가 여러 타겟에 매칭되는 것을 방지할 수 있음
         for (const targetMenu of nobrandMenus) {
-          let bestMatch: { name: string; imageUrl?: string } | null = null;
+          let bestMatch: {
+            name: string;
+            imageUrl?: string;
+            description?: string;
+          } | null = null;
           let bestScore = 0;
           const normalizedTarget = this.normalizeMenuName(targetMenu);
 
@@ -265,11 +287,12 @@ export class NobrandScraperService extends BaseScraperService {
             menuDataMap.set(targetMenu, {
               imageUrl: bestMatch.imageUrl,
               detailUrl: `https://www.shinsegaefood.com/nobrandburger/index.sf#none`,
+              description: bestMatch.description,
             });
 
             const originalName = bestMatch.name.split('\n')[0].trim();
             console.log(
-              `  ✅ 발견: "${targetMenu}" (원본 이름: "${originalName}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}`,
+              `  ✅ 발견: "${targetMenu}" (원본 이름: "${originalName}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}${bestMatch.description ? ` - description: ${bestMatch.description.substring(0, 40)}...` : ''}`,
             );
           } else {
             console.log(
@@ -501,6 +524,9 @@ export class NobrandScraperService extends BaseScraperService {
           if (menuData.detailUrl) {
             existingMenuItem.detailUrl = menuData.detailUrl;
           }
+          if (menuData.description) {
+            existingMenuItem.description = menuData.description;
+          }
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -536,6 +562,7 @@ export class NobrandScraperService extends BaseScraperService {
             category: 'burger',
             imageUrl: menuData.imageUrl,
             detailUrl: menuData.detailUrl,
+            description: menuData.description || undefined,
             isActive: true,
           });
 
