@@ -101,7 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_brands_slug ON brands(slug);
 INSERT INTO brands (slug, name) VALUES
     ('mcdonalds', '맥도날드'),
     ('burgerking', '버거킹'),
-    ('lotte', '롯데리아'),
+    ('lotteria', '롯데리아'),
     ('momstouch', '맘스터치'),
     ('kfc', 'KFC'),
     ('nobrand', '노브랜드버거'),
