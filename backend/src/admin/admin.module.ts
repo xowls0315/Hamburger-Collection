@@ -11,6 +11,7 @@ import { BurgerKingScraperService } from './scrapers/burgerking-scraper.service'
 import { LotteriaScraperService } from './scrapers/lotteria-scraper.service';
 import { MomstouchScraperService } from './scrapers/momstouch-scraper.service';
 import { NobrandScraperService } from './scrapers/nobrand-scraper.service';
+import { FrankScraperService } from './scrapers/frank-scraper.service';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { NobrandScraperService } from './scrapers/nobrand-scraper.service';
     LotteriaScraperService,
     MomstouchScraperService,
     NobrandScraperService,
+    FrankScraperService,
   ],
 })
 export class AdminModule {}

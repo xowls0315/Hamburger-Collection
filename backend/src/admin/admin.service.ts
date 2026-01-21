@@ -5,6 +5,7 @@ import { BurgerKingScraperService } from './scrapers/burgerking-scraper.service'
 import { LotteriaScraperService } from './scrapers/lotteria-scraper.service';
 import { MomstouchScraperService } from './scrapers/momstouch-scraper.service';
 import { NobrandScraperService } from './scrapers/nobrand-scraper.service';
+import { FrankScraperService } from './scrapers/frank-scraper.service';
 
 @Injectable()
 export class AdminService {
@@ -15,6 +16,7 @@ export class AdminService {
     private lotteriaScraper: LotteriaScraperService,
     private momstouchScraper: MomstouchScraperService,
     private nobrandScraper: NobrandScraperService,
+    private frankScraper: FrankScraperService,
   ) {}
 
   /**
@@ -160,22 +162,6 @@ export class AdminService {
     errors: number;
     errorDetails: string[];
   }> {
-    const brand = await this.brandsService.findOneBySlug('frank');
-    if (!brand) {
-      throw new NotFoundException('프랭크 버거 브랜드를 찾을 수 없습니다.');
-    }
-
-    console.log(`\n🍔 프랭크 버거 메뉴 수집 시작...`);
-
-    // TODO: 프랭크 버거 메뉴 스크래핑 로직 구현
-    return {
-      success: false,
-      brand: brand.name,
-      total: 0,
-      created: 0,
-      updated: 0,
-      errors: 0,
-      errorDetails: ['프랭크 버거 스크래핑 로직이 아직 구현되지 않았습니다.'],
-    };
+    return await this.frankScraper.scrapeFrankMenus();
   }
 }
