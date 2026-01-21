@@ -7,11 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { PostsModule } from '../posts/posts.module';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([Comment]),
-    UsersModule,
-    PostsModule,
-  ],
+  imports: [TypeOrmModule.forFeature([Comment]), UsersModule, PostsModule],
   controllers: [CommentsController],
   providers: [CommentsService],
   exports: [CommentsService],

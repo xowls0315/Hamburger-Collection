@@ -1,4 +1,4 @@
-﻿import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { IngestLog } from '../entities/ingest-log.entity';
@@ -9,6 +9,8 @@ import { BaseScraperService } from './base-scraper.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
 import * as puppeteer from 'puppeteer';
+import * as fs from 'fs';
+import * as path from 'path';
 
 @Injectable()
 export class BurgerKingScraperService extends BaseScraperService {
@@ -59,6 +61,75 @@ export class BurgerKingScraperService extends BaseScraperService {
       lowerName.includes('x2') ||
       lowerName.startsWith('행)')
     );
+  }
+
+  /**
+   * 메뉴가 단품인지 확인 (세트/콤보가 아닌지)
+   */
+  private isSingleItem(menu: { menuNm?: string; menuComponents?: string }): boolean {
+    if (!menu.menuNm) return false;
+    
+    const menuName = menu.menuNm.toLowerCase();
+    const menuComponents = (menu.menuComponents || '').toLowerCase();
+    
+    // 세트/콤보 키워드 확인
+    const setKeywords = ['세트', '라지', '콤보', 'combo', 'set', 'pack', '팩'];
+    const hasSetKeyword = setKeywords.some(keyword => menuName.includes(keyword));
+    
+    // menuComponents에 "+"가 있으면 세트/콤보
+    const hasPlusInComponents = menuComponents.includes('+');
+    
+    // menuNm에 "+"가 있으면 세트/콤보
+    const hasPlusInName = menuName.includes('+');
+    
+    // "행)"으로 시작하면 세트
+    const startsWithSet = menuName.startsWith('행)');
+    
+    // 단품인 경우: 세트 키워드 없음, + 없음, 행)으로 시작하지 않음
+    return !hasSetKeyword && !hasPlusInComponents && !hasPlusInName && !startsWithSet;
+  }
+
+  /**
+   * JSON 파일에서 메뉴 이름과 menuCd 매핑을 로드 (단품만)
+   */
+  private loadMenuCdMap(): Map<string, string> {
+    const menuCdMap = new Map<string, string>();
+    try {
+      const jsonPath = path.join(
+        process.cwd(),
+        'menu-items-examples',
+        'burgerking-menu-data.json',
+      );
+      const jsonData = JSON.parse(fs.readFileSync(jsonPath, 'utf-8'));
+
+      if (jsonData.body && jsonData.body.allMenuList) {
+        for (const menuGroup of jsonData.body.allMenuList) {
+          if (menuGroup.menuInfo) {
+            for (const menu of menuGroup.menuInfo) {
+              // 단품만 처리
+              if (menu.menuNm && menu.menuCd && this.isSingleItem(menu)) {
+                // 정규화된 이름으로 매핑
+                const normalizedName = this.normalizeMenuName(menu.menuNm);
+                menuCdMap.set(normalizedName, menu.menuCd);
+                // 원본 이름(소문자, 공백 제거)으로도 매핑
+                const originalNameLower = menu.menuNm.toLowerCase().trim();
+                menuCdMap.set(originalNameLower, menu.menuCd);
+                // 공백 제거한 이름으로도 매핑
+                const noSpaceName = menu.menuNm.replace(/\s+/g, '').toLowerCase();
+                menuCdMap.set(noSpaceName, menu.menuCd);
+                // 정규화 후 공백 제거한 이름으로도 매핑
+                const normalizedNoSpace = normalizedName.replace(/\s+/g, '');
+                menuCdMap.set(normalizedNoSpace, menu.menuCd);
+              }
+            }
+          }
+        }
+      }
+      console.log(`    📋 JSON에서 ${menuCdMap.size}개의 단품 menuCd 매핑을 로드했습니다.`);
+    } catch (error) {
+      console.error(`    ⚠️ JSON 파일 로드 실패: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return menuCdMap;
   }
 
   /**
@@ -129,9 +200,13 @@ export class BurgerKingScraperService extends BaseScraperService {
       normalizedTargetMenus.set(this.normalizeMenuName(menu), menu);
     });
 
+    // JSON 파일에서 menuCd 매핑 로드
+    const menuCdMap = this.loadMenuCdMap();
     console.log(`📋 총 ${targetMenus.length}개의 타겟 메뉴를 처리합니다.`);
+    console.log(`📋 JSON에서 ${menuCdMap.size}개의 menuCd 매핑을 로드했습니다.`);
 
     // 메인 페이지에서 메뉴 정보 추출
+    // 버거킹은 Vue.js를 사용하므로 Puppeteer로 동적 콘텐츠를 로드해야 함
     const menuDataMap = new Map<
       string,
       {
@@ -147,137 +222,199 @@ export class BurgerKingScraperService extends BaseScraperService {
       const mainPageUrl = 'https://www.burgerking.co.kr/menu/main';
       console.log(`\n📄 메인 페이지 처리 중: ${mainPageUrl}`);
 
-      const mainPageResponse = await axios.get(mainPageUrl, {
-        headers: {
-          'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          Accept:
-            'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-        },
+      // Puppeteer로 메인 페이지 로드 (Vue.js 앱이므로 동적 콘텐츠 필요)
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
 
-      const $ = cheerio.load(String(mainPageResponse.data));
+      try {
+        const page = await browser.newPage();
+        await page.setUserAgent(
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        );
 
-      // 메뉴 카드 찾기
-      $('.menu_card').each((_, element) => {
-        const $card = $(element);
-        const $img = $card.find('.prd_image img');
-        const $title = $card.find('.cont .tit span');
-        const $detailBtn = $card.find('.btn_detail');
+        await page.goto(mainPageUrl, {
+          waitUntil: 'networkidle2',
+          timeout: 30000,
+        });
 
-        if (!$img.length || !$title.length) {
-          return;
-        }
+        await this.delay(3000); // Vue 앱 로드 대기
 
-        const imageUrl = $img.attr('src')?.trim();
-        const menuName = $title.text().trim();
+        // 모든 메뉴 카드 정보를 한 번에 수집 (페이지를 다시 로드하지 않음)
+        const allMenuCards = await page.evaluate(() => {
+          const cards = document.querySelectorAll('.menu_card');
+          const result: Array<{
+            menuName: string;
+            imageUrl: string;
+            menuId?: string;
+          }> = [];
 
-        if (!imageUrl || !menuName) {
-          return;
-        }
+          cards.forEach((card) => {
+            const img = card.querySelector('.prd_image img');
+            const title = card.querySelector('.cont .tit span');
+            const btn = card.querySelector('.btn_detail');
 
-        // 세트/콤보 메뉴는 제외
-        if (this.isSetOrCombo(menuName)) {
-          return;
-        }
+            const imageUrl = img?.getAttribute('src')?.trim() || '';
+            const menuName = title?.textContent?.trim() || '';
 
-        // 이미지 URL을 절대 경로로 변환
-        let fullImageUrl = imageUrl;
-        if (!fullImageUrl.startsWith('http')) {
-          if (fullImageUrl.startsWith('//')) {
-            fullImageUrl = `https:${fullImageUrl}`;
-          } else if (fullImageUrl.startsWith('/')) {
-            fullImageUrl = `https://www.burgerking.co.kr${fullImageUrl}`;
-          } else {
-            return;
-          }
-        }
+            if (!menuName || !imageUrl) {
+              return;
+            }
 
-        // 상세 페이지 URL 추출
-        // 버거킹은 Vue.js를 사용하므로 실제 링크가 없을 수 있음
-        // 메뉴 카드의 data 속성이나 주변 요소에서 메뉴 ID를 찾아야 함
-        const normalizedName = this.normalizeMenuName(menuName);
+            // 이미지 URL을 절대 경로로 변환
+            let fullImageUrl = imageUrl;
+            if (imageUrl && !fullImageUrl.startsWith('http')) {
+              if (fullImageUrl.startsWith('//')) {
+                fullImageUrl = `https:${fullImageUrl}`;
+              } else if (fullImageUrl.startsWith('/')) {
+                fullImageUrl = `https://www.burgerking.co.kr${fullImageUrl}`;
+              }
+            }
 
-        // 메뉴 카드에서 data 속성이나 다른 속성으로 메뉴 ID 찾기
-        let menuId: string | null = null;
-        let detailUrl = '';
+            // data 속성에서 menuId 찾기
+            let menuId: string | undefined;
+            const dataMenuId =
+              card.getAttribute('data-menu-id') ||
+              card.getAttribute('data-id') ||
+              btn?.getAttribute('data-menu-id') ||
+              btn?.getAttribute('data-id') ||
+              null;
+            if (dataMenuId) {
+              menuId = dataMenuId;
+            }
 
-        // 방법 1: data 속성에서 찾기
-        menuId =
-          $card.attr('data-menu-id') ||
-          $card.attr('data-id') ||
-          $detailBtn.attr('data-menu-id') ||
-          $detailBtn.attr('data-id') ||
-          null;
+            result.push({
+              menuName,
+              imageUrl: fullImageUrl,
+              menuId,
+            });
+          });
 
-        // 방법 2: 주변 요소에서 메뉴 ID 찾기 (Vue 컴포넌트의 data 속성 등)
-        if (!menuId) {
-          // 메뉴 카드의 부모 요소나 형제 요소에서 찾기
-          const parent = $card.parent();
-          menuId =
-            parent.attr('data-menu-id') || parent.attr('data-id') || null;
-        }
+          return result;
+        });
 
-        if (menuId) {
-          detailUrl = `https://www.burgerking.co.kr/menu/detail/${menuId}`;
-        }
+        console.log(`  📋 총 ${allMenuCards.length}개의 메뉴 카드 발견`);
 
-        // 타겟 메뉴 중 하나인지 확인
-        const matchedTargetMenu = normalizedTargetMenus.get(normalizedName);
+        // 메뉴 카드 처리 및 URL 추출
+        for (const cardInfo of allMenuCards) {
+          try {
+            const { menuName, imageUrl, menuId: cardMenuId } = cardInfo;
 
-        if (!matchedTargetMenu) {
-          // 부분 일치 검색
-          for (const [
-            normalizedTarget,
-            targetMenu,
-          ] of normalizedTargetMenus.entries()) {
-            const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
-            const normalizedTargetNoSpace = normalizedTarget.replace(
-              /\s+/g,
-              '',
-            );
+            if (!menuName || !imageUrl) {
+              continue;
+            }
 
-            if (
-              normalizedName.includes(normalizedTarget) ||
-              normalizedTarget.includes(normalizedName) ||
-              normalizedNameNoSpace.includes(normalizedTargetNoSpace) ||
-              normalizedTargetNoSpace.includes(normalizedNameNoSpace)
-            ) {
-              // 이미 저장된 메뉴가 없거나 이미지가 없는 경우에만 저장
-              const existing = menuDataMap.get(
-                this.normalizeMenuName(targetMenu),
-              );
+            // 세트/콤보 메뉴는 제외
+            if (this.isSetOrCombo(menuName)) {
+              continue;
+            }
+
+            const normalizedName = this.normalizeMenuName(menuName);
+            let detailUrl = '';
+            let menuId: string | null = cardMenuId || null;
+
+            // JSON 파일에서 menuCd 찾기 (여러 방법 시도)
+            let menuCd =
+              menuCdMap.get(normalizedName) ||
+              menuCdMap.get(menuName.toLowerCase().trim()) ||
+              menuCdMap.get(menuName.replace(/\s+/g, '').toLowerCase()) ||
+              menuCdMap.get(normalizedName.replace(/\s+/g, ''));
+
+            // 부분 일치로도 찾기 시도
+            if (!menuCd) {
+              for (const [key, value] of menuCdMap.entries()) {
+                const normalizedKey = this.normalizeMenuName(key);
+                const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
+                const normalizedKeyNoSpace = normalizedKey.replace(/\s+/g, '');
+                
+                if (
+                  normalizedName === normalizedKey ||
+                  normalizedNameNoSpace === normalizedKeyNoSpace ||
+                  (normalizedName.length >= 3 && normalizedKey.includes(normalizedName)) ||
+                  (normalizedKey.length >= 3 && normalizedName.includes(normalizedKey)) ||
+                  (normalizedNameNoSpace.length >= 3 && normalizedKeyNoSpace.includes(normalizedNameNoSpace)) ||
+                  (normalizedKeyNoSpace.length >= 3 && normalizedNameNoSpace.includes(normalizedKeyNoSpace))
+                ) {
+                  menuCd = value;
+                  break;
+                }
+              }
+            }
+
+            if (menuCd) {
+              menuId = menuCd;
+              detailUrl = `https://www.burgerking.co.kr/menu/detail/${menuCd}`;
+            } else if (menuId) {
+              // cardMenuId가 있으면 사용
+              detailUrl = `https://www.burgerking.co.kr/menu/detail/${menuId}`;
+            }
+
+            // 타겟 메뉴 중 하나인지 확인
+            const matchedTargetMenu = normalizedTargetMenus.get(normalizedName);
+
+            if (!matchedTargetMenu) {
+              // 부분 일치 검색
+              for (const [
+                normalizedTarget,
+                targetMenu,
+              ] of normalizedTargetMenus.entries()) {
+                const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
+                const normalizedTargetNoSpace = normalizedTarget.replace(
+                  /\s+/g,
+                  '',
+                );
+
+                if (
+                  normalizedName.includes(normalizedTarget) ||
+                  normalizedTarget.includes(normalizedName) ||
+                  normalizedNameNoSpace.includes(normalizedTargetNoSpace) ||
+                  normalizedTargetNoSpace.includes(normalizedNameNoSpace)
+                ) {
+                  // 이미 저장된 메뉴가 없거나 이미지가 없는 경우에만 저장
+                  const existing = menuDataMap.get(
+                    this.normalizeMenuName(targetMenu),
+                  );
+                  if (!existing || !existing.imageUrl) {
+                    menuDataMap.set(this.normalizeMenuName(targetMenu), {
+                      originalName: targetMenu,
+                      imageUrl: imageUrl,
+                      detailUrl: detailUrl,
+                      menuId: menuId || undefined,
+                    });
+                    console.log(
+                      `  ✅ 발견: "${targetMenu}" (원본: "${menuName}") -> 이미지: ${imageUrl.substring(0, 60)}...${detailUrl ? ` -> URL: ${detailUrl}` : ''}`,
+                    );
+                  }
+                  break;
+                }
+              }
+            } else {
+              // 정확히 일치하는 경우
+              const existing = menuDataMap.get(normalizedName);
               if (!existing || !existing.imageUrl) {
-                menuDataMap.set(this.normalizeMenuName(targetMenu), {
-                  originalName: targetMenu,
-                  imageUrl: fullImageUrl,
+                menuDataMap.set(normalizedName, {
+                  originalName: matchedTargetMenu,
+                  imageUrl: imageUrl,
                   detailUrl: detailUrl,
                   menuId: menuId || undefined,
                 });
                 console.log(
-                  `  ✅ 발견: "${targetMenu}" (원본: "${menuName}") -> 이미지: ${fullImageUrl.substring(0, 60)}...`,
+                  `  ✅ 발견: "${matchedTargetMenu}" (원본: "${menuName}") -> 이미지: ${imageUrl.substring(0, 60)}...${detailUrl ? ` -> URL: ${detailUrl}` : ''}`,
                 );
               }
-              break;
             }
-          }
-        } else {
-          // 정확히 일치하는 경우
-          const existing = menuDataMap.get(normalizedName);
-          if (!existing || !existing.imageUrl) {
-            menuDataMap.set(normalizedName, {
-              originalName: matchedTargetMenu,
-              imageUrl: fullImageUrl,
-              detailUrl: detailUrl,
-              menuId: menuId || undefined,
-            });
-            console.log(
-              `  ✅ 발견: "${matchedTargetMenu}" (원본: "${menuName}") -> 이미지: ${fullImageUrl.substring(0, 60)}...`,
-            );
+          } catch (error) {
+            // 개별 메뉴 카드 처리 중 에러 발생 시 계속 진행
+            console.log(`    ⚠️ 메뉴 카드 처리 중 에러: ${error instanceof Error ? error.message : String(error)}`);
+            continue;
           }
         }
-      });
+
+        await page.close();
+      } finally {
+        await browser.close();
+      }
 
       console.log(
         `\n📊 메인 페이지에서 ${menuDataMap.size}개의 타겟 메뉴를 찾았습니다.`,
@@ -289,9 +426,7 @@ export class BurgerKingScraperService extends BaseScraperService {
       console.error(`  ❌ ${errorMsg}`);
     }
 
-    // 메뉴 상세 페이지 URL이 없는 경우 Puppeteer로 찾기
-    // 버거킹은 Vue.js를 사용하므로 실제 링크가 없을 수 있음
-    // Puppeteer로 메인 페이지를 로드하고 모든 메뉴 카드의 버튼을 클릭하여 URL 추출
+    // 메뉴 상세 페이지 URL이 없는 경우 JSON 파일에서 menuCd 찾기
     const menusWithoutUrl = Array.from(menuDataMap.entries()).filter(
       ([, data]) => !data.detailUrl,
     );
@@ -299,35 +434,60 @@ export class BurgerKingScraperService extends BaseScraperService {
     if (menusWithoutUrl.length > 0) {
       console.log(`\n🔍 ${menusWithoutUrl.length}개의 메뉴에 대해 상세 페이지 URL을 찾는 중...`);
       
-      try {
-        const browser = await puppeteer.launch({
-          headless: true,
-          args: ['--no-sandbox', '--disable-setuid-sandbox'],
-        });
+      // JSON 파일에서 menuCd 찾기
+      for (const [normalizedName, menuData] of menusWithoutUrl) {
+        const menuName = menuData.originalName;
+        const menuCd = menuCdMap.get(normalizedName) || 
+                      menuCdMap.get(menuName.toLowerCase().trim()) ||
+                      menuCdMap.get(menuName.replace(/\s+/g, '').toLowerCase()) ||
+                      menuCdMap.get(this.normalizeMenuName(menuName).replace(/\s+/g, ''));
+        
+        if (menuCd) {
+          menuData.detailUrl = `https://www.burgerking.co.kr/menu/detail/${menuCd}`;
+          menuData.menuId = menuCd;
+          console.log(`    ✅ "${menuName}" -> ${menuData.detailUrl}`);
+        } else {
+          console.log(`    ⚠️ "${menuName}" 상세 페이지 URL을 찾을 수 없음 (JSON에서 menuCd 없음)`);
+        }
+      }
+      
+      // 여전히 URL이 없는 메뉴들에 대해서만 Puppeteer로 찾기
+      const stillWithoutUrl = Array.from(menuDataMap.entries()).filter(
+        ([, data]) => !data.detailUrl,
+      );
 
+      if (stillWithoutUrl.length > 0) {
+        console.log(`\n🔍 ${stillWithoutUrl.length}개의 메뉴에 대해 Puppeteer로 상세 페이지 URL을 찾는 중...`);
+        
         try {
-          const page = await browser.newPage();
-          await page.setUserAgent(
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          );
-
-          await page.goto('https://www.burgerking.co.kr/menu/main', {
-            waitUntil: 'networkidle2',
-            timeout: 30000,
+          const browser = await puppeteer.launch({
+            headless: true,
+            args: ['--no-sandbox', '--disable-setuid-sandbox'],
           });
 
-          await this.delay(3000); // Vue 앱 로드 대기
+          try {
+            const page = await browser.newPage();
+            await page.setUserAgent(
+              'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            );
 
-          // 모든 메뉴 카드에서 메뉴 이름과 URL 매핑 추출
-          const menuUrlMap: Record<string, string> = {};
+            await page.goto('https://www.burgerking.co.kr/menu/main', {
+              waitUntil: 'networkidle2',
+              timeout: 30000,
+            });
 
-          // 페이지의 모든 메뉴 카드 찾기
-          const allCards = await page.$$('.menu_card');
-          console.log(`    📋 총 ${allCards.length}개의 메뉴 카드 발견`);
-          
-          for (let i = 0; i < allCards.length; i++) {
-            try {
-              const card = allCards[i];
+            await this.delay(3000); // Vue 앱 로드 대기
+
+            // 모든 메뉴 카드에서 메뉴 이름과 URL 매핑 추출
+            const menuUrlMap: Record<string, string> = {};
+
+            // 페이지의 모든 메뉴 카드 찾기
+            const allCards = await page.$$('.menu_card');
+            console.log(`    📋 총 ${allCards.length}개의 메뉴 카드 발견`);
+            
+            for (let i = 0; i < allCards.length; i++) {
+              try {
+                const card = allCards[i];
               
               // 메뉴 이름 추출
               const menuName = await page.evaluate((el) => {
@@ -344,7 +504,7 @@ export class BurgerKingScraperService extends BaseScraperService {
               let isTargetMenu = false;
               let matchedTargetMenu = '';
 
-              for (const [normalizedName, menuData] of menusWithoutUrl) {
+              for (const [normalizedName, menuData] of stillWithoutUrl) {
                 if (normalizedName === normalizedCardName) {
                   isTargetMenu = true;
                   matchedTargetMenu = menuData.originalName;
@@ -420,7 +580,7 @@ export class BurgerKingScraperService extends BaseScraperService {
           }
 
           // 추출한 URL 매핑을 menuDataMap에 적용
-          for (const [normalizedName, menuData] of menusWithoutUrl) {
+          for (const [normalizedName, menuData] of stillWithoutUrl) {
             const menuName = menuData.originalName;
             
             // 정확히 일치하는 메뉴 이름 찾기
@@ -463,11 +623,12 @@ export class BurgerKingScraperService extends BaseScraperService {
         } finally {
           await browser.close();
         }
-      } catch (error: unknown) {
+        } catch (error: unknown) {
         console.log(
           `  ⚠️ Puppeteer로 상세 페이지 URL 찾기 실패: ${error instanceof Error ? error.message : String(error)}`,
         );
       }
+    }
     }
 
     // 각 타겟 메뉴에 대해 DB 저장/업데이트
@@ -692,7 +853,7 @@ export class BurgerKingScraperService extends BaseScraperService {
           await this.delay(2000);
 
           // 모달에서 영양성분 테이블 추출
-          const nutritionData = await page.evaluate((targetMenuName) => {
+          const nutritionResult = await page.evaluate((targetMenuName) => {
             const modals = document.querySelectorAll('.modalWrap');
             let nutritionTable: HTMLTableElement | null = null;
 
@@ -718,130 +879,318 @@ export class BurgerKingScraperService extends BaseScraperService {
               }
             }
 
-            if (!nutritionTable) return null;
+            if (!nutritionTable) {
+              return { data: null, debug: { error: '영양성분 테이블을 찾을 수 없음' } };
+            }
 
             // 헤더에서 컬럼 인덱스 찾기
+            // 주의: <th>는 "제품명", "중량", "열량", "단백질" 순서이고
+            // <td>는 "중량", "열량", "단백질" 순서이므로 th 인덱스에서 1을 빼야 함
             const headerMap: { [key: string]: number } = {};
             const headerRow = nutritionTable.querySelector('thead tr');
             if (headerRow) {
               const headers = headerRow.querySelectorAll('th');
               headers.forEach((th, i) => {
                 const headerText = th.textContent?.trim() || '';
+                // "제품명"은 th[0]이므로 데이터 셀 인덱스는 i-1
+                const dataCellIndex = i - 1;
                 if (
                   headerText.includes('열량') ||
                   headerText.includes('Kcal')
                 ) {
-                  headerMap['kcal'] = i;
+                  headerMap['kcal'] = dataCellIndex;
                 } else if (headerText.includes('단백질')) {
-                  headerMap['protein'] = i;
+                  headerMap['protein'] = dataCellIndex;
                 } else if (headerText.includes('나트륨')) {
-                  headerMap['sodium'] = i;
+                  headerMap['sodium'] = dataCellIndex;
                 } else if (headerText.includes('당류')) {
-                  headerMap['sugar'] = i;
+                  headerMap['sugar'] = dataCellIndex;
                 } else if (headerText.includes('포화지방')) {
-                  headerMap['saturatedFat'] = i;
+                  headerMap['saturatedFat'] = dataCellIndex;
                 }
               });
             }
 
-            // 메뉴 이름과 일치하는 행 찾기
+            // 메뉴 이름과 일치하는 행 찾기 (단품 버거만)
             const tbody = nutritionTable.querySelector('tbody');
-            if (!tbody) return null;
+            if (!tbody) {
+              return { data: null, debug: { error: '테이블 tbody를 찾을 수 없음' } };
+            }
 
             const rows = tbody.querySelectorAll('tr');
+            
+            // 제외할 키워드 (세트, 팩 등)
+            const excludeKeywords = ['세트', '팩', '세트팩', '콤보', 'combo', 'set', 'pack', '라지', 'large', '프렌치프라이', '프라이', '코카콜라', '콜라', '사이드', '음료'];
+            
+            // 정규화 함수 (normalizeMenuName과 동일한 로직)
+            const normalizeName = (name: string): string => {
+              return name
+                .replace(/행\)/g, '')
+                .replace(/세트/g, '')
+                .replace(/라지/g, '')
+                .replace(/\(R\)/g, '')
+                .replace(/\(L\)/g, '')
+                .replace(/\+/g, '')
+                .replace(/X2/g, '')
+                .replace(/콜라R/g, '')
+                .replace(/콜라L/g, '')
+                .replace(/프라이R/g, '')
+                .replace(/프라이L/g, '')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .toLowerCase();
+            };
+            
+            // 정규화된 메뉴 이름 준비
+            const normalizedMenuName = normalizeName(targetMenuName);
+            const menuNameNoSpace = normalizedMenuName.replace(/\s+/g, '');
+            
+            // 모든 제품명 수집 (디버깅용)
+            const allProductNames: string[] = [];
+            const allRowsInfo: Array<{ name: string; isExcluded: boolean; reason?: string }> = [];
+            let bestMatch: { row: Element; score: number; productName: string } | null = null;
+            
             for (const row of rows) {
               // 메뉴 이름은 <th scope="row">에 있음
               const menuTh = row.querySelector('th[scope="row"]');
-              if (!menuTh) continue;
+              if (!menuTh) {
+                // th가 없으면 다른 방법으로 제품명 찾기 시도
+                const firstCell = row.querySelector('td:first-child, th:first-child');
+                if (!firstCell) continue;
+                const productName = firstCell.textContent?.trim() || '';
+                if (productName) {
+                  allRowsInfo.push({ name: productName, isExcluded: true, reason: 'th[scope="row"] 없음' });
+                }
+                continue;
+              }
 
               const productName = menuTh.textContent?.trim() || '';
               const cells = row.querySelectorAll('td');
 
-              if (cells.length === 0) continue;
+              if (cells.length === 0) {
+                allRowsInfo.push({ name: productName, isExcluded: true, reason: '데이터 셀 없음' });
+                continue;
+              }
 
-              const normalizedProductName = productName
-                .replace(/\s+/g, '')
-                .toLowerCase();
-              const normalizedMenuName = targetMenuName
-                .replace(/\s+/g, '')
-                .toLowerCase();
+              // 세트, 팩 등이 포함된 행은 제외
+              const productNameLower = productName.toLowerCase();
+              const hasExcludeKeyword = excludeKeywords.some(keyword => 
+                productNameLower.includes(keyword.toLowerCase())
+              );
+              
+              // "+" 기호가 있으면 세트/콤보
+              const hasPlus = productName.includes('+') || productName.includes('＋');
+              
+              // "행)"으로 시작하면 세트
+              const startsWithSet = productName.startsWith('행)');
+              
+              if (hasExcludeKeyword || hasPlus || startsWithSet) {
+                const reason = hasExcludeKeyword ? '제외 키워드 포함' : hasPlus ? '플러스 기호 포함' : '행)으로 시작';
+                allRowsInfo.push({ name: productName, isExcluded: true, reason });
+                continue; // 세트/팩 메뉴는 건너뛰기
+              }
+              
+              // 단품으로 판단
+              allProductNames.push(productName);
+              allRowsInfo.push({ name: productName, isExcluded: false });
 
-              if (
-                normalizedProductName.includes(normalizedMenuName) ||
-                normalizedMenuName.includes(normalizedProductName) ||
-                productName === targetMenuName
-              ) {
-                const parseNumber = (text: string): number | null => {
-                  // 괄호와 그 안의 내용 제거 (예: "43(78)" -> "43")
-                  let cleaned = text.replace(/\([^)]*\)/g, '').trim();
-                  // 단위 제거 (g, mg, ml, kcal, % 등)
-                  cleaned = cleaned.replace(/[a-zA-Z%]/g, '').trim();
-                  // 공백, 쉼표 제거
-                  cleaned = cleaned.replace(/[,\s]/g, '').trim();
-                  if (!cleaned || cleaned === '-' || cleaned === '') {
-                    return null;
+              // 메뉴 이름 매칭 - 정규화된 이름으로 비교
+              const normalizedProductName = normalizeName(productName);
+              const productNameNoSpace = normalizedProductName.replace(/\s+/g, '');
+
+              let matchScore = 0;
+              
+              // 1. 정확한 매칭 (가장 높은 우선순위)
+              if (normalizedProductName === normalizedMenuName) {
+                matchScore = 100;
+              } else if (productNameNoSpace === menuNameNoSpace) {
+                matchScore = 95;
+              } else if (productName === targetMenuName) {
+                matchScore = 90;
+              } 
+              // 2. 제품명이 메뉴명으로 시작하는 경우
+              else if (normalizedProductName.startsWith(normalizedMenuName) && normalizedMenuName.length >= 3) {
+                matchScore = 80;
+              } else if (productNameNoSpace.startsWith(menuNameNoSpace) && menuNameNoSpace.length >= 3) {
+                matchScore = 75;
+              }
+              // 3. 메뉴명이 제품명으로 시작하는 경우 (단품 버거인 경우)
+              else if (normalizedMenuName.startsWith(normalizedProductName) && normalizedProductName.length >= 3) {
+                matchScore = 70;
+              } else if (menuNameNoSpace.startsWith(productNameNoSpace) && productNameNoSpace.length >= 3) {
+                matchScore = 65;
+              }
+              // 4. 양방향 포함 관계 (단품 버거인 경우만, 최소 3글자 이상)
+              else if (normalizedProductName.includes(normalizedMenuName) && normalizedMenuName.length >= 3) {
+                matchScore = 60;
+              } else if (normalizedMenuName.includes(normalizedProductName) && normalizedProductName.length >= 3) {
+                matchScore = 55;
+              }
+              // 5. 부분 일치 (더 관대한 매칭)
+              else {
+                // 공통 부분 문자열 찾기
+                const commonLength = Math.min(normalizedProductName.length, normalizedMenuName.length);
+                let commonChars = 0;
+                for (let i = 0; i < commonLength; i++) {
+                  if (normalizedProductName[i] === normalizedMenuName[i]) {
+                    commonChars++;
+                  } else {
+                    break;
                   }
-                  const num = parseFloat(cleaned);
-                  return isNaN(num) ? null : num;
-                };
-
-                const result: any = {};
-
-                // 컬럼 순서: 제품명(th), 중량(g/ml), 열량(kcal), 단백질(g), 나트륨(mg), 당류(g), 포화지방(g), 카페인(mg)
-                // cells[0] = 중량, cells[1] = 열량, cells[2] = 단백질, cells[3] = 나트륨, cells[4] = 당류, cells[5] = 포화지방, cells[6] = 카페인
-
-                // 헤더 맵을 사용하거나, 고정 인덱스 사용
-                // 열량 (일반적으로 cells[1] 또는 headerMap['kcal'])
-                const kcalIndex =
-                  headerMap['kcal'] !== undefined ? headerMap['kcal'] : 1;
-                if (cells.length > kcalIndex) {
-                  const valueText = cells[kcalIndex].textContent?.trim() || '';
-                  result.kcal = parseNumber(valueText);
                 }
-
-                // 단백질 (일반적으로 cells[2] 또는 headerMap['protein'])
-                const proteinIndex =
-                  headerMap['protein'] !== undefined
-                    ? headerMap['protein']
-                    : 2;
-                if (cells.length > proteinIndex) {
-                  const valueText = cells[proteinIndex].textContent?.trim() || '';
-                  result.protein = parseNumber(valueText);
+                // 공통 부분이 전체의 50% 이상이면 매칭
+                if (commonChars >= Math.max(3, normalizedMenuName.length * 0.5)) {
+                  matchScore = 50;
                 }
+              }
 
-                // 나트륨 (일반적으로 cells[3] 또는 headerMap['sodium'])
-                const sodiumIndex =
-                  headerMap['sodium'] !== undefined ? headerMap['sodium'] : 3;
-                if (cells.length > sodiumIndex) {
-                  const valueText = cells[sodiumIndex].textContent?.trim() || '';
-                  result.sodium = parseNumber(valueText);
+              if (matchScore > 0) {
+                if (!bestMatch || matchScore > bestMatch.score) {
+                  bestMatch = { row, score: matchScore, productName };
                 }
-
-                // 당류 (일반적으로 cells[4] 또는 headerMap['sugar'])
-                const sugarIndex =
-                  headerMap['sugar'] !== undefined ? headerMap['sugar'] : 4;
-                if (cells.length > sugarIndex) {
-                  const valueText = cells[sugarIndex].textContent?.trim() || '';
-                  result.sugar = parseNumber(valueText);
-                }
-
-                // 포화지방 (일반적으로 cells[5] 또는 headerMap['saturatedFat'])
-                const saturatedFatIndex =
-                  headerMap['saturatedFat'] !== undefined
-                    ? headerMap['saturatedFat']
-                    : 5;
-                if (cells.length > saturatedFatIndex) {
-                  const valueText =
-                    cells[saturatedFatIndex].textContent?.trim() || '';
-                  result.saturatedFat = parseNumber(valueText);
-                }
-
-                return result;
               }
             }
 
-            return null;
+            // 디버그 정보 준비
+            const debugInfo: any = {
+              targetMenuName,
+              normalizedMenuName,
+              allProductNames,
+              allRowsInfo: allRowsInfo.slice(0, 20), // 최대 20개만 표시
+              totalRows: rows.length,
+            };
+
+            if (bestMatch && bestMatch.score >= 50) {
+              debugInfo.matchedProductName = bestMatch.productName;
+              debugInfo.matchScore = bestMatch.score;
+              
+              const row = bestMatch.row;
+              const cells = row.querySelectorAll('td');
+
+              const parseNumber = (text: string): number | null => {
+                // 괄호와 그 안의 내용 제거 (예: "43(78)" -> "43")
+                let cleaned = text.replace(/\([^)]*\)/g, '').trim();
+                // 단위 제거 (g, mg, ml, kcal, % 등)
+                cleaned = cleaned.replace(/[a-zA-Z%]/g, '').trim();
+                // 공백, 쉼표 제거
+                cleaned = cleaned.replace(/[,\s]/g, '').trim();
+                if (!cleaned || cleaned === '-' || cleaned === '') {
+                  return null;
+                }
+                const num = parseFloat(cleaned);
+                return isNaN(num) ? null : num;
+              };
+
+              const result: any = {};
+
+              // 컬럼 순서: 제품명(th), 중량(g/ml), 열량(kcal), 단백질(g), 나트륨(mg), 당류(g), 포화지방(g), 카페인(mg)
+              // td cells[0] = 중량, cells[1] = 열량, cells[2] = 단백질, cells[3] = 나트륨, cells[4] = 당류, cells[5] = 포화지방, cells[6] = 카페인
+              // 헤더 맵은 이미 dataCellIndex로 계산되어 있음 (th 인덱스 - 1)
+
+              // 헤더 맵이 비어있으면 기본 인덱스 사용
+              // 열량 (cells[1])
+              const kcalIndex =
+                headerMap['kcal'] !== undefined && headerMap['kcal'] >= 0
+                  ? headerMap['kcal']
+                  : 1;
+              if (cells.length > kcalIndex && kcalIndex >= 0) {
+                const valueText = cells[kcalIndex].textContent?.trim() || '';
+                const kcalValue = parseNumber(valueText);
+                if (kcalValue !== null) {
+                  result.kcal = kcalValue;
+                }
+              }
+
+              // 단백질 (cells[2])
+              const proteinIndex =
+                headerMap['protein'] !== undefined && headerMap['protein'] >= 0
+                  ? headerMap['protein']
+                  : 2;
+              if (cells.length > proteinIndex && proteinIndex >= 0) {
+                const valueText = cells[proteinIndex].textContent?.trim() || '';
+                const proteinValue = parseNumber(valueText);
+                if (proteinValue !== null) {
+                  result.protein = proteinValue;
+                }
+              }
+
+              // 나트륨 (cells[3])
+              const sodiumIndex =
+                headerMap['sodium'] !== undefined && headerMap['sodium'] >= 0
+                  ? headerMap['sodium']
+                  : 3;
+              if (cells.length > sodiumIndex && sodiumIndex >= 0) {
+                const valueText = cells[sodiumIndex].textContent?.trim() || '';
+                const sodiumValue = parseNumber(valueText);
+                if (sodiumValue !== null) {
+                  result.sodium = sodiumValue;
+                }
+              }
+
+              // 당류 (cells[4])
+              const sugarIndex =
+                headerMap['sugar'] !== undefined && headerMap['sugar'] >= 0
+                  ? headerMap['sugar']
+                  : 4;
+              if (cells.length > sugarIndex && sugarIndex >= 0) {
+                const valueText = cells[sugarIndex].textContent?.trim() || '';
+                const sugarValue = parseNumber(valueText);
+                if (sugarValue !== null) {
+                  result.sugar = sugarValue;
+                }
+              }
+
+              // 포화지방 (cells[5])
+              const saturatedFatIndex =
+                headerMap['saturatedFat'] !== undefined &&
+                headerMap['saturatedFat'] >= 0
+                  ? headerMap['saturatedFat']
+                  : 5;
+              if (
+                cells.length > saturatedFatIndex &&
+                saturatedFatIndex >= 0
+              ) {
+                const valueText =
+                  cells[saturatedFatIndex].textContent?.trim() || '';
+                const saturatedFatValue = parseNumber(valueText);
+                if (saturatedFatValue !== null) {
+                  result.saturatedFat = saturatedFatValue;
+                }
+              }
+
+              return { data: result, debug: debugInfo };
+            }
+
+            debugInfo.error = '매칭되는 제품을 찾을 수 없음';
+            return { data: null, debug: debugInfo };
           }, menuName);
+
+          // 디버그 정보 출력
+          if (nutritionResult.debug) {
+            if (nutritionResult.debug.matchedProductName) {
+              console.log(`    🔍 매칭 성공: "${menuName}" -> "${nutritionResult.debug.matchedProductName}" (점수: ${nutritionResult.debug.matchScore})`);
+            } else {
+              console.log(`    ⚠️ 매칭 실패: "${menuName}"`);
+              console.log(`       정규화된 메뉴명: "${nutritionResult.debug.normalizedMenuName}"`);
+              console.log(`       테이블 총 행 수: ${nutritionResult.debug.totalRows || 0}`);
+              if (nutritionResult.debug.allProductNames && nutritionResult.debug.allProductNames.length > 0) {
+                console.log(`       테이블의 단품 제품명 (${nutritionResult.debug.allProductNames.length}개):`, nutritionResult.debug.allProductNames);
+              } else {
+                console.log(`       테이블의 단품 제품명: 없음`);
+              }
+              if (nutritionResult.debug.allRowsInfo && nutritionResult.debug.allRowsInfo.length > 0) {
+                console.log(`       테이블의 모든 행 정보 (최대 10개):`);
+                nutritionResult.debug.allRowsInfo.slice(0, 10).forEach((rowInfo: any) => {
+                  console.log(`         - "${rowInfo.name}" ${rowInfo.isExcluded ? `(제외: ${rowInfo.reason})` : '(단품)'}`);
+                });
+              }
+              if (nutritionResult.debug.error) {
+                console.log(`       오류: ${nutritionResult.debug.error}`);
+              }
+            }
+          }
+
+          const nutritionData = nutritionResult.data;
 
           await browser.close();
 
