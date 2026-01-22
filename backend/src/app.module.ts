@@ -12,6 +12,7 @@ import { CommentsModule } from './comments/comments.module';
 import { AuthModule } from './auth/auth.module';
 import { StoresModule } from './stores/stores.module';
 import { AdminModule } from './admin/admin.module';
+import { FavoritesModule } from './favorites/favorites.module';
 
 @Module({
   imports: [
@@ -48,6 +49,7 @@ import { AdminModule } from './admin/admin.module';
     AuthModule,
     StoresModule,
     AdminModule,
+    FavoritesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

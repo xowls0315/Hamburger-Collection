@@ -47,17 +47,25 @@ export class StoresService {
         },
       );
 
-      return response.data.documents.map((doc: any) => ({
+      const stores = response.data.documents.map((doc: any) => ({
         id: doc.id,
-        name: doc.place_name,
-        address: doc.address_name,
-        roadAddress: doc.road_address_name,
-        phone: doc.phone,
-        placeUrl: doc.place_url,
-        distance: parseInt(doc.distance),
-        lat: parseFloat(doc.y),
-        lng: parseFloat(doc.x),
+        place_name: doc.place_name,
+        address_name: doc.address_name,
+        road_address_name: doc.road_address_name || '',
+        phone: doc.phone || '',
+        distance: doc.distance || '0',
+        x: doc.x,
+        y: doc.y,
+        place_url: doc.place_url,
       }));
+
+      return {
+        keyword: brand.name,
+        location: { lat, lng },
+        radius,
+        totalCount: stores.length,
+        stores,
+      };
     } catch (error: any) {
       if (error.response) {
         // 카카오 API 에러 응답

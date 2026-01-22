@@ -7,8 +7,8 @@ export class CreateCommentDto {
     example: '좋은 글이네요!',
     minLength: 1,
   })
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(1)
+  @IsString({ message: 'content must be a string' })
+  @IsNotEmpty({ message: '이 입력란을 입력하세요.' })
+  @MinLength(1, { message: '이 입력란을 입력하세요.' })
   content: string;
 }

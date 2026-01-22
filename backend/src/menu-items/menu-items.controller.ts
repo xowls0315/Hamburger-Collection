@@ -44,8 +44,8 @@ export class MenuItemsController {
   @ApiQuery({
     name: 'limit',
     required: false,
-    description: '페이지당 항목 수 (기본값: 20)',
-    example: 20,
+    description: '페이지당 항목 수 (기본값: 12)',
+    example: 12,
   })
   @ApiResponse({ status: 200, description: '메뉴 목록 조회 성공' })
   findAll(
@@ -59,7 +59,7 @@ export class MenuItemsController {
       category,
       sort,
       page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
+      limit: limit ? parseInt(limit) : 12,
     });
   }
 }

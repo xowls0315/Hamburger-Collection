@@ -75,7 +75,16 @@ CREATE TABLE IF NOT EXISTS comments (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 9. 수집 로그 테이블 (옵션)
+-- 9. 즐겨찾기 테이블
+CREATE TABLE IF NOT EXISTS favorites (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    menu_item_id UUID NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, menu_item_id)
+);
+
+-- 10. 수집 로그 테이블 (옵션)
 CREATE TABLE IF NOT EXISTS ingest_logs (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     brand_id UUID NOT NULL REFERENCES brands(id) ON DELETE CASCADE,
@@ -85,7 +94,7 @@ CREATE TABLE IF NOT EXISTS ingest_logs (
     fetched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 10. 인덱스 생성 (성능 최적화)
+-- 11. 인덱스 생성 (성능 최적화)
 CREATE INDEX IF NOT EXISTS idx_menu_items_brand_id ON menu_items(brand_id);
 CREATE INDEX IF NOT EXISTS idx_menu_items_category ON menu_items(category);
 CREATE INDEX IF NOT EXISTS idx_menu_items_is_active ON menu_items(is_active);
@@ -96,8 +105,11 @@ CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_kakao_id ON users(kakao_id);
 CREATE INDEX IF NOT EXISTS idx_brands_slug ON brands(slug);
+CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_menu_item_id ON favorites(menu_item_id);
+CREATE INDEX IF NOT EXISTS idx_favorites_created_at ON favorites(created_at DESC);
 
--- 11. 시드 데이터 삽입 (브랜드)
+-- 12. 시드 데이터 삽입 (브랜드)
 INSERT INTO brands (slug, name) VALUES
     ('mcdonalds', '맥도날드'),
     ('burgerking', '버거킹'),
@@ -108,7 +120,7 @@ INSERT INTO brands (slug, name) VALUES
     ('frank', '프랭크버거')
 ON CONFLICT (slug) DO NOTHING;
 
--- 12. 트리거 함수 생성 (updated_at 자동 업데이트)
+-- 13. 트리거 함수 생성 (updated_at 자동 업데이트)
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -117,7 +129,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- 13. 트리거 생성
+-- 14. 트리거 생성
 CREATE TRIGGER update_brands_updated_at BEFORE UPDATE ON brands
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

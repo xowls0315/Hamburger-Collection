@@ -1,38 +1,425 @@
 "use client";
 
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
-import { useState } from "react";
+import { useParams } from "next/navigation";
+import { FaLongArrowAltRight, FaLongArrowAltLeft } from "react-icons/fa";
+import { IoLocationOutline } from "react-icons/io5";
+import { getBrand, searchStores, Store } from "../../../lib/api";
+import { StoreCardSkeleton, Skeleton } from "../../../components/Skeleton";
 
-const brands: Record<string, string> = {
-  mcdonalds: "맥도날드",
-  burgerking: "버거킹",
-  lotte: "롯데리아",
-  momstouch: "맘스터치",
-  kfc: "KFC",
-  nobrand: "노브랜드버거",
-  frank: "프랭크버거",
-};
+declare global {
+  interface Window {
+    kakao: any;
+  }
+}
 
-export default function StoresPage({
-  params,
-}: {
-  params: { slug: string };
-}) {
-  const brandName = brands[params.slug] || "브랜드";
+export default function StoresPage() {
+  const params = useParams();
+  const slug = params.slug as string;
+  const mapRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<any>(null);
+  const markersRef = useRef<any[]>([]);
+  const currentLocationMarkerRef = useRef<any>(null);
+  const currentLocationOverlayRef = useRef<any>(null); // 현재 위치 CustomOverlay // 현재 위치 마커
+
+  const [brand, setBrand] = useState<any>(null);
+  const [stores, setStores] = useState<Store[]>([]);
+  const [loading, setLoading] = useState(false);
   const [showList, setShowList] = useState(true);
+  const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
+    null
+  );
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null); // 선택된 매장
+
+  useEffect(() => {
+    const loadBrand = async () => {
+      try {
+        const brandData = await getBrand(slug);
+        setBrand(brandData);
+      } catch (error) {
+        console.error("브랜드 로딩 실패:", error);
+      }
+    };
+    loadBrand();
+  }, [slug]);
+
+  // 카카오맵 초기화
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const kakaoMapKey = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY;
+    if (!kakaoMapKey) {
+      console.warn("카카오맵 API 키가 설정되지 않았습니다. NEXT_PUBLIC_KAKAO_MAP_KEY 환경 변수를 확인하세요.");
+      // API 키가 없어도 기본 지도는 표시 (제한적 기능)
+    }
+
+    // 지도 초기화 함수 (재사용 가능)
+    const initMap = () => {
+      if (!mapRef.current || !window.kakao || !window.kakao.maps) {
+        return false;
+      }
+      
+      if (!mapInstanceRef.current) {
+        try {
+          const defaultPosition = new window.kakao.maps.LatLng(37.5665, 126.978);
+          const options = {
+            center: defaultPosition,
+            level: 5,
+          };
+          mapInstanceRef.current = new window.kakao.maps.Map(
+            mapRef.current,
+            options
+          );
+          console.log("카카오맵 초기화 성공");
+          return true;
+        } catch (error) {
+          console.error("카카오맵 초기화 실패:", error);
+          return false;
+        }
+      }
+      return true;
+    };
+
+    // 이미 스크립트가 로드되어 있는지 확인
+    if (window.kakao && window.kakao.maps) {
+      initMap();
+      return;
+    }
+
+    // 스크립트가 없으면 로드
+    const existingScript = document.querySelector('script[src*="dapi.kakao.com/v2/maps/sdk.js"]');
+    if (existingScript) {
+      // 스크립트가 이미 있으면 로드 완료를 기다림
+      const checkKakao = setInterval(() => {
+        if (window.kakao && window.kakao.maps) {
+          clearInterval(checkKakao);
+          window.kakao.maps.load(() => {
+            initMap();
+          });
+        }
+      }, 100);
+      
+      // 타임아웃 설정 (10초 후 포기)
+      setTimeout(() => {
+        clearInterval(checkKakao);
+        if (!window.kakao || !window.kakao.maps) {
+          console.error("카카오맵 스크립트 로드 타임아웃");
+        }
+      }, 10000);
+      
+      return () => clearInterval(checkKakao);
+    }
+
+    // 새 스크립트 로드
+    if (!kakaoMapKey) {
+      console.error("❌ 카카오맵 API 키가 설정되지 않았습니다.");
+      console.error("📝 설정 방법:");
+      console.error("1. 카카오 개발자 콘솔(https://developers.kakao.com/) 접속");
+      console.error("2. 내 애플리케이션 → 앱 설정 → 플랫폼");
+      console.error("3. 'JavaScript SDK 도메인'에 http://localhost:3000 추가");
+      console.error("4. 앱 키에서 'JavaScript 키' 복사");
+      console.error("5. 프론트엔드 루트에 .env.local 파일 생성:");
+      console.error("   NEXT_PUBLIC_KAKAO_MAP_KEY=복사한_JavaScript_키");
+      console.error("6. 개발 서버 재시작 (npm run dev)");
+      return;
+    }
+
+    const script = document.createElement("script");
+    // HTTPS 프로토콜 명시
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${kakaoMapKey}&autoload=false`;
+    script.async = true;
+    
+    script.onload = () => {
+      console.log("✅ 카카오맵 스크립트 로드 완료");
+      if (window.kakao && window.kakao.maps) {
+        window.kakao.maps.load(() => {
+          console.log("✅ 카카오맵 SDK 로드 완료");
+          initMap();
+        });
+      } else {
+        console.error("❌ 카카오맵 객체를 찾을 수 없습니다.");
+      }
+    };
+    
+    script.onerror = (error) => {
+      console.error("❌ 카카오맵 스크립트 로드 실패:", error);
+      console.error("📝 확인 사항:");
+      console.error("1. NEXT_PUBLIC_KAKAO_MAP_KEY가 올바르게 설정되었는지 확인");
+      console.error("2. 카카오 개발자 콘솔에서 'JavaScript SDK 도메인'에 http://localhost:3000이 등록되었는지 확인");
+      console.error("3. JavaScript 키가 활성화되어 있는지 확인");
+      console.error("4. 브라우저 콘솔에서 네트워크 탭을 확인하여 스크립트 로드 에러 확인");
+    };
+    
+    document.head.appendChild(script);
+    
+    return () => {
+      // 컴포넌트 언마운트 시 정리 (필요한 경우)
+    };
+  }, []);
+
+  // 지도 초기화 함수 (재사용 가능)
+  const initializeMap = (centerLat?: number, centerLng?: number) => {
+    if (!mapRef.current || !window.kakao || !window.kakao.maps) {
+      console.log("지도 초기화 조건 불만족:", {
+        hasMapRef: !!mapRef.current,
+        hasKakao: !!window.kakao,
+        hasMaps: !!(window.kakao && window.kakao.maps),
+      });
+      return false;
+    }
+    
+    if (!mapInstanceRef.current) {
+      try {
+        const lat = centerLat || 37.5665;
+        const lng = centerLng || 126.978;
+        const defaultPosition = new window.kakao.maps.LatLng(lat, lng);
+        const options = {
+          center: defaultPosition,
+          level: 5,
+        };
+        mapInstanceRef.current = new window.kakao.maps.Map(
+          mapRef.current,
+          options
+        );
+        console.log("카카오맵 초기화 성공");
+        return true;
+      } catch (error) {
+        console.error("카카오맵 초기화 실패:", error);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // 현재 위치 마커 표시 (빨간색)
+  const showCurrentLocationMarker = (lat: number, lng: number) => {
+    if (!mapInstanceRef.current || !window.kakao || !window.kakao.maps) {
+      return;
+    }
+
+    // 기존 현재 위치 마커 및 오버레이 제거
+    if (currentLocationMarkerRef.current) {
+      currentLocationMarkerRef.current.setMap(null);
+    }
+    if (currentLocationOverlayRef.current) {
+      currentLocationOverlayRef.current.setMap(null);
+    }
+
+    // 빨간색 마커 이미지 생성
+    const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png';
+    const imageSize = new window.kakao.maps.Size(24, 35);
+    const imageOption = { offset: new window.kakao.maps.Point(12, 35) };
+    const markerImage = new window.kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+
+    // 현재 위치 마커 생성
+    const currentPosition = new window.kakao.maps.LatLng(lat, lng);
+    const marker = new window.kakao.maps.Marker({
+      position: currentPosition,
+      image: markerImage,
+    });
+    marker.setMap(mapInstanceRef.current);
+    currentLocationMarkerRef.current = marker;
+
+    // CustomOverlay로 "현재 위치" 라벨 표시 (width: fit-content)
+    const customOverlay = new window.kakao.maps.CustomOverlay({
+      position: currentPosition,
+      content: '<div style="padding: 4px 8px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; font-weight: 600; color: #374151; font-size: 11px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">현재 위치</div>',
+      yAnchor: 2.2, // 마커 위에 표시
+    });
+    customOverlay.setMap(mapInstanceRef.current);
+    currentLocationOverlayRef.current = customOverlay;
+  };
+
+  // 지도에 마커 표시
+  const updateMapMarkers = (stores: Store[], currentLat?: number, currentLng?: number) => {
+    // 지도가 없으면 초기화 시도
+    if (!mapInstanceRef.current) {
+      if (!initializeMap(currentLat, currentLng)) {
+        console.warn("지도를 초기화할 수 없습니다.");
+        return;
+      }
+    }
+
+    if (!mapInstanceRef.current || !window.kakao || !window.kakao.maps) {
+      console.warn("카카오맵이 준비되지 않았습니다.");
+      return;
+    }
+
+    // 기존 매장 마커 제거
+    markersRef.current.forEach((marker) => marker.setMap(null));
+    markersRef.current = [];
+
+    // 현재 위치 마커 표시
+    if (currentLat && currentLng) {
+      showCurrentLocationMarker(currentLat, currentLng);
+    }
+
+    if (stores.length === 0) {
+      // 매장이 없어도 현재 위치는 중심으로 이동
+      if (currentLat && currentLng && mapInstanceRef.current) {
+        const currentPosition = new window.kakao.maps.LatLng(currentLat, currentLng);
+        mapInstanceRef.current.setCenter(currentPosition);
+        mapInstanceRef.current.setLevel(5);
+      }
+      return;
+    }
+
+    // 매장 마커 생성
+    const bounds = new window.kakao.maps.LatLngBounds();
+    
+    // 현재 위치도 bounds에 포함
+    if (currentLat && currentLng) {
+      bounds.extend(new window.kakao.maps.LatLng(currentLat, currentLng));
+    }
+
+    stores.forEach((store) => {
+      const position = new window.kakao.maps.LatLng(
+        parseFloat(store.y),
+        parseFloat(store.x)
+      );
+      const marker = new window.kakao.maps.Marker({ position });
+      marker.setMap(mapInstanceRef.current);
+      markersRef.current.push(marker);
+      bounds.extend(position);
+
+      // 매장 마커 클릭 시 리스트에서 선택 상태로 변경 (인포윈도우 표시 안 함)
+      window.kakao.maps.event.addListener(marker, "click", () => {
+        setSelectedStoreId(store.id);
+        // 지도 중심을 클릭한 매장으로 이동
+        const clickedPosition = new window.kakao.maps.LatLng(
+          parseFloat(store.y),
+          parseFloat(store.x)
+        );
+        mapInstanceRef.current.setCenter(clickedPosition);
+        mapInstanceRef.current.setLevel(3);
+      });
+    });
+
+    // 지도 범위 조정 (현재 위치와 모든 매장 포함)
+    mapInstanceRef.current.setBounds(bounds);
+  };
+
+  const handleSearch = async () => {
+    console.log("매장 검색 버튼 클릭됨");
+    
+    if (!navigator.geolocation) {
+      alert("이 브라우저는 위치 서비스를 지원하지 않습니다.");
+      return;
+    }
+
+    // 즉시 로딩 상태 표시
+    setLoading(true);
+    console.log("위치 서비스 사용 가능, 위치 요청 시작...");
+    
+    // 위치 권한 옵션 설정
+    const options = {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 0,
+    };
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        console.log("위치 정보 획득 성공:", position.coords);
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        setLocation({ lat, lng });
+
+        try {
+          console.log("매장 검색 시작:", { slug, lat, lng });
+          const result = await searchStores(slug, lat, lng, 5000);
+          console.log("매장 검색 결과:", result);
+          
+          // 백엔드 응답이 배열인 경우와 객체인 경우 모두 처리
+          let stores = Array.isArray(result) ? result : (result.stores || []);
+          
+          // 거리순으로 정렬 (거리가 작은 순서대로)
+          stores = stores.sort((a, b) => {
+            const distanceA = parseFloat(a.distance || "0");
+            const distanceB = parseFloat(b.distance || "0");
+            return distanceA - distanceB;
+          });
+          
+          setStores(stores);
+          
+          // 지도가 없으면 초기화 시도
+          const initMapIfNeeded = () => {
+            if (!mapInstanceRef.current) {
+              if (window.kakao && window.kakao.maps) {
+                window.kakao.maps.load(() => {
+                  initializeMap(lat, lng);
+                  updateMapMarkers(stores, lat, lng);
+                });
+              } else {
+                // 카카오맵이 아직 로드되지 않았으면 잠시 대기 후 재시도
+                setTimeout(() => {
+                  if (window.kakao && window.kakao.maps) {
+                    window.kakao.maps.load(() => {
+                      initializeMap(lat, lng);
+                      updateMapMarkers(stores, lat, lng);
+                    });
+                  } else {
+                    console.warn("카카오맵을 사용할 수 없습니다.");
+                  }
+                }, 1000);
+              }
+            } else {
+              updateMapMarkers(stores, lat, lng);
+            }
+          };
+
+          if (stores.length > 0) {
+            console.log(`${stores.length}개의 매장 발견`);
+            initMapIfNeeded();
+          } else {
+            console.log("주변에 매장이 없습니다.");
+            // 매장이 없어도 현재 위치는 표시
+            initMapIfNeeded();
+          }
+        } catch (error: any) {
+          console.error("매장 검색 실패:", error);
+          alert(error.message || "매장 검색에 실패했습니다.");
+          setStores([]);
+        } finally {
+          setLoading(false);
+        }
+      },
+      (error) => {
+        console.error("위치 정보 가져오기 실패:", error);
+        let errorMessage = "위치 정보를 가져올 수 없습니다.";
+        
+        switch (error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "위치 정보를 사용할 수 없습니다.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "위치 정보 요청 시간이 초과되었습니다.";
+            break;
+        }
+        
+        alert(errorMessage);
+        setLoading(false);
+      },
+      options
+    );
+  };
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6 flex items-center justify-between">
         <div>
           <Link
-            href={`/brand/${params.slug}`}
-            className="text-sm text-gray-600 hover:text-orange-600"
+            href={`/brand/${slug}`}
+            className="inline-flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
           >
-            ← {brandName} 메뉴로 돌아가기
+            <FaLongArrowAltLeft /> {brand?.name || "브랜드"} 메뉴로 돌아가기
           </Link>
           <h1 className="mt-2 text-3xl font-bold text-gray-900">
-            {brandName} 매장 찾기
+            {brand?.name || "브랜드"} 매장 찾기
           </h1>
         </div>
         <button
@@ -44,12 +431,36 @@ export default function StoresPage({
       </div>
 
       <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
-        <button className="w-full rounded-lg bg-orange-500 px-4 py-3 text-white hover:bg-orange-600">
-          📍 내 주변 매장 검색
+        <button
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            console.log("버튼 클릭 이벤트 발생");
+            handleSearch();
+          }}
+          disabled={loading}
+          className="w-full rounded-lg bg-orange-500 px-4 py-3 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+        >
+          {loading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
+              검색 중...
+            </span>
+          ) : (
+            <span className="flex justify-center items-center gap-2 cursor-pointer">
+              <IoLocationOutline className="text-lg" />
+              내 주변 매장 검색
+            </span>
+          )}
         </button>
         <p className="mt-2 text-xs text-gray-500">
           위치 권한을 허용해주시면 주변 매장을 찾아드립니다
         </p>
+        {loading && (
+          <p className="mt-2 text-xs text-blue-600">
+            위치 정보를 가져오는 중입니다...
+          </p>
+        )}
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -59,12 +470,11 @@ export default function StoresPage({
             showList ? "hidden md:block" : "block"
           } rounded-lg border border-gray-200 bg-gray-100`}
         >
-          <div className="flex h-[600px] items-center justify-center">
-            <div className="text-center text-gray-500">
-              <div className="mb-2 text-4xl">🗺️</div>
-              <p>카카오 지도가 표시됩니다</p>
-            </div>
-          </div>
+          <div
+            ref={mapRef}
+            className="h-[600px] w-full rounded-lg"
+            style={{ minHeight: "600px" }}
+          />
         </div>
 
         {/* 매장 리스트 */}
@@ -74,32 +484,68 @@ export default function StoresPage({
           } space-y-4 overflow-y-auto`}
           style={{ maxHeight: "600px" }}
         >
-          {/* 플레이스홀더 매장 카드 */}
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div
-              key={i}
-              className="rounded-lg border border-gray-200 bg-white p-4 transition-all hover:shadow-lg"
-            >
-              <h3 className="mb-2 font-semibold text-gray-800">매장명 {i}</h3>
-              <p className="mb-2 text-sm text-gray-600">
-                서울시 강남구 테헤란로 123
-              </p>
-              <div className="mb-2 flex items-center gap-4 text-sm text-gray-500">
-                <span>거리: 약 1.{i}km</span>
-                <span>전화: 02-1234-567{i}</span>
-              </div>
-              <div className="flex gap-2">
-                <a
-                  href="#"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-blue-600 hover:underline"
-                >
-                  카카오맵에서 보기 →
-                </a>
-              </div>
+          {loading ? (
+            <div className="space-y-4">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <StoreCardSkeleton key={i} />
+              ))}
             </div>
-          ))}
+          ) : stores && stores.length > 0 ? (
+            stores.map((store) => (
+              <div
+                key={store.id}
+                onClick={() => {
+                  setSelectedStoreId(store.id);
+                  // 지도 중심을 클릭한 매장으로 이동
+                  if (mapInstanceRef.current && window.kakao && window.kakao.maps) {
+                    const clickedPosition = new window.kakao.maps.LatLng(
+                      parseFloat(store.y),
+                      parseFloat(store.x)
+                    );
+                    mapInstanceRef.current.setCenter(clickedPosition);
+                    mapInstanceRef.current.setLevel(3);
+                  }
+                }}
+                className={`rounded-lg border-2 p-4 transition-all cursor-pointer ${
+                  selectedStoreId === store.id
+                    ? "border-orange-500 bg-orange-50 shadow-lg"
+                    : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-lg"
+                }`}
+              >
+                <h3 className={`mb-2 font-semibold ${
+                  selectedStoreId === store.id ? "text-orange-700" : "text-gray-800"
+                }`}>
+                  {store.place_name}
+                </h3>
+                <p className="mb-2 text-sm text-gray-600">
+                  {store.road_address_name || store.address_name}
+                </p>
+                {store.phone && (
+                  <p className="mb-2 text-sm text-gray-500">전화: {store.phone}</p>
+                )}
+                <div className="mb-2 flex items-center gap-4 text-sm text-gray-500">
+                  <span>거리: 약 {(parseFloat(store.distance) / 1000).toFixed(1)}km</span>
+                </div>
+                <div className="flex gap-2">
+                  <a
+                    href={store.place_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                  >
+                    카카오맵에서 보기 <FaLongArrowAltRight />
+                  </a>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="text-center text-gray-500 py-8">
+              {location
+                ? "주변에 매장이 없습니다."
+                : "위치 검색 버튼을 눌러주세요."}
+            </div>
+          )}
         </div>
       </div>
     </div>

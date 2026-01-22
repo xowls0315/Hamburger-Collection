@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
+import { AuthProvider } from "./context/AuthContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -15,8 +16,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "햄버거 모음 사이트",
+  title: "Hamburger-Collection",
   description: "브랜드별 햄버거 메뉴와 영양정보를 한 곳에서 탐색하세요",
+  icons: {
+    icon: "/logo.png",
+    shortcut: "/logo.png",
+    apple: "/logo.png",
+  },
 };
 
 export default function RootLayout({
@@ -29,13 +35,15 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <div className="flex min-h-screen flex-col">
-          <Header />
-          <div className="flex flex-1">
-            <main className="flex-1">{children}</main>
-            <Sidebar />
+        <AuthProvider>
+          <div className="flex min-h-screen flex-col">
+            <Header />
+            <div className="flex flex-1">
+              <main className="flex-1">{children}</main>
+              <Sidebar />
+            </div>
           </div>
-        </div>
+        </AuthProvider>
       </body>
     </html>
   );

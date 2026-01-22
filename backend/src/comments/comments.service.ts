@@ -34,7 +34,18 @@ export class CommentsService {
       postId,
       userId,
     });
-    return await this.commentsRepository.save(comment);
+    const savedComment = await this.commentsRepository.save(comment);
+    // user relation을 포함해서 반환
+    const createdComment = await this.commentsRepository.findOne({
+      where: { id: savedComment.id },
+      relations: ['user'],
+    });
+    
+    if (!createdComment) {
+      throw new NotFoundException(`Comment with id ${savedComment.id} not found`);
+    }
+    
+    return createdComment;
   }
 
   async update(
@@ -53,7 +64,18 @@ export class CommentsService {
     }
 
     Object.assign(comment, updateCommentDto);
-    return await this.commentsRepository.save(comment);
+    const savedComment = await this.commentsRepository.save(comment);
+    // user relation을 포함해서 반환
+    const updatedComment = await this.commentsRepository.findOne({
+      where: { id: savedComment.id },
+      relations: ['user'],
+    });
+    
+    if (!updatedComment) {
+      throw new NotFoundException(`Comment with id ${savedComment.id} not found`);
+    }
+    
+    return updatedComment;
   }
 
   async remove(id: string, userId: string): Promise<void> {

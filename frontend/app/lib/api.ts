@@ -40,13 +40,33 @@ async function fetchApi<T>(
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      
+      // NestJS validation 에러 형식 처리
+      let errorMessage = errorData.message || `HTTP Error: ${response.status}`;
+      if (Array.isArray(errorMessage)) {
+        // validation 에러 배열인 경우 첫 번째 메시지 사용
+        errorMessage = errorMessage[0] || `HTTP Error: ${response.status}`;
+      }
+      
       throw new ApiError(
         response.status,
-        errorData.message || `HTTP Error: ${response.status}`
+        errorMessage
       );
     }
 
-    return response.json();
+    // 응답 본문이 비어있는 경우를 처리 (삭제 API 등)
+    const text = await response.text();
+    if (!text || text.trim() === "") {
+      return {} as T;
+    }
+
+    // JSON 파싱 시도
+    try {
+      return JSON.parse(text) as T;
+    } catch (error) {
+      // JSON이 아닌 경우 빈 객체 반환
+      return {} as T;
+    }
   } catch (error) {
     clearTimeout(timeoutId);
     if (error instanceof ApiError) throw error;
@@ -99,13 +119,13 @@ export interface MenuItem {
   name: string;
   description?: string;
   imageUrl?: string;
-  sourceUrl?: string;
+  detailUrl?: string; // 백엔드 필드명과 일치
   brand: Brand;
   nutrition?: Nutrition;
 }
 
 export interface MenuListResponse {
-  data: MenuItem[];
+  items: MenuItem[];
   total: number;
   page: number;
   limit: number;
@@ -207,14 +227,15 @@ export interface Post {
   title: string;
   content: string;
   viewCount: number;
-  author: Author;
+  author?: Author; // 프론트엔드에서 변환
+  user?: { id: string; nickname: string; profileImage?: string }; // 백엔드 응답
   createdAt: string;
   updatedAt: string;
   _count?: { comments: number };
 }
 
 export interface PostListResponse {
-  data: Post[];
+  posts: Post[];
   total: number;
   page: number;
   limit: number;
@@ -225,11 +246,34 @@ export async function getPosts(
   page: number = 1,
   limit: number = 20
 ): Promise<PostListResponse> {
-  return fetchApi<PostListResponse>(`/posts?page=${page}&limit=${limit}`);
+  const data = await fetchApi<PostListResponse>(`/posts?page=${page}&limit=${limit}`);
+  // 백엔드의 user를 author로 변환
+  if (data.posts) {
+    data.posts = data.posts.map((post) => ({
+      ...post,
+      author: post.user
+        ? {
+            id: post.user.id,
+            nickname: post.user.nickname,
+            profileImage: post.user.profileImage,
+          }
+        : post.author,
+    }));
+  }
+  return data;
 }
 
 export async function getPost(id: string): Promise<Post> {
-  return fetchApi<Post>(`/posts/${id}`);
+  const post = await fetchApi<Post>(`/posts/${id}`);
+  // 백엔드의 user를 author로 변환
+  if (post.user) {
+    post.author = {
+      id: post.user.id,
+      nickname: post.user.nickname,
+      profileImage: post.user.profileImage,
+    };
+  }
+  return post;
 }
 
 export async function createPost(data: {
@@ -252,31 +296,57 @@ export async function updatePost(
   });
 }
 
-export async function deletePost(id: string): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>(`/posts/${id}`, { method: "DELETE" });
+export async function deletePost(id: string): Promise<void> {
+  await fetchApi<void>(`/posts/${id}`, { method: "DELETE" });
 }
 
 // ============ 댓글 API ============
 export interface Comment {
   id: string;
   content: string;
-  author: Author;
+  author?: Author; // 프론트엔드에서 변환
+  user?: { id: string; nickname: string; profileImage?: string }; // 백엔드 응답
   createdAt: string;
   updatedAt: string;
 }
 
 export async function getComments(postId: string): Promise<Comment[]> {
-  return fetchApi<Comment[]>(`/posts/${postId}/comments`);
+  const comments = await fetchApi<Comment[]>(`/posts/${postId}/comments`);
+  // 백엔드의 user를 author로 변환
+  return comments.map((comment) => ({
+    ...comment,
+    author: comment.user
+      ? {
+          id: comment.user.id,
+          nickname: comment.user.nickname,
+          profileImage: comment.user.profileImage,
+        }
+      : comment.author,
+  }));
 }
 
 export async function createComment(
   postId: string,
   content: string
 ): Promise<Comment> {
-  return fetchApi<Comment>(`/posts/${postId}/comments`, {
+  const comment = await fetchApi<Comment>(`/posts/${postId}/comments`, {
     method: "POST",
     body: JSON.stringify({ content }),
   });
+  // 백엔드의 user를 author로 변환
+  // 백엔드에서 user relation이 포함되지 않을 수 있으므로 안전하게 처리
+  if (comment.user) {
+    comment.author = {
+      id: comment.user.id,
+      nickname: comment.user.nickname,
+      profileImage: comment.user.profileImage,
+    };
+  } else if (!comment.author) {
+    // user가 없고 author도 없으면 빈 author 설정 (나중에 새로고침하면 로드됨)
+    // 또는 현재 사용자 정보를 사용할 수 있지만, 일단 안전하게 처리
+    comment.author = undefined;
+  }
+  return comment;
 }
 
 export async function updateComment(
@@ -284,10 +354,19 @@ export async function updateComment(
   commentId: string,
   content: string
 ): Promise<Comment> {
-  return fetchApi<Comment>(`/posts/${postId}/comments/${commentId}`, {
+  const comment = await fetchApi<Comment>(`/posts/${postId}/comments/${commentId}`, {
     method: "PATCH",
     body: JSON.stringify({ content }),
   });
+  // 백엔드의 user를 author로 변환
+  if (comment.user) {
+    comment.author = {
+      id: comment.user.id,
+      nickname: comment.user.nickname,
+      profileImage: comment.user.profileImage,
+    };
+  }
+  return comment;
 }
 
 export async function deleteComment(
@@ -297,4 +376,31 @@ export async function deleteComment(
   return fetchApi<{ success: boolean }>(`/posts/${postId}/comments/${commentId}`, {
     method: "DELETE",
   });
+}
+
+// ============ 즐겨찾기 API ============
+export interface Favorite {
+  id: string;
+  menuItem: MenuItem;
+  createdAt: string;
+}
+
+export async function getFavorites(): Promise<Favorite[]> {
+  return fetchApi<Favorite[]>("/favorites");
+}
+
+export async function addFavorite(menuItemId: string): Promise<Favorite> {
+  return fetchApi<Favorite>(`/favorites/${menuItemId}`, {
+    method: "POST",
+  });
+}
+
+export async function removeFavorite(menuItemId: string): Promise<void> {
+  await fetchApi<void>(`/favorites/${menuItemId}`, {
+    method: "DELETE",
+  });
+}
+
+export async function checkFavorite(menuItemId: string): Promise<{ isFavorite: boolean }> {
+  return fetchApi<{ isFavorite: boolean }>(`/favorites/check/${menuItemId}`);
 }

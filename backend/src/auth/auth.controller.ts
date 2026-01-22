@@ -77,41 +77,14 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
       });
 
-      // 백엔드 테스트용: JSON 응답 반환 (프론트엔드 연동 시 리다이렉트로 변경)
-      return res.json({
-        success: true,
-        message: '카카오 로그인 성공',
-        user: {
-          id: user.id,
-          kakaoId: user.kakaoId,
-          nickname: user.nickname,
-          profileImage: user.profileImage,
-          role: user.role,
-        },
-        tokens: {
-          accessToken, // 테스트용으로 토큰도 반환 (프로덕션에서는 제거)
-          refreshToken, // 테스트용으로 토큰도 반환 (프로덕션에서는 제거)
-        },
-        cookies: {
-          accessToken: '설정됨',
-          refreshToken: '설정됨',
-        },
-      });
+      // 프론트엔드로 리다이렉트
+      const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/auth/callback?success=true`);
     } catch (error: any) {
       console.error('카카오 콜백 에러:', error);
       const errorMessage = error.message || '로그인 실패';
-      const errorResponse = error.response?.data || {};
-
-      return res.status(500).json({
-        success: false,
-        message: errorMessage,
-        error: {
-          code: errorResponse.error || 'UNKNOWN_ERROR',
-          description: errorResponse.error_description || errorMessage,
-          errorCode: errorResponse.error_code || null,
-        },
-        details: errorResponse,
-      });
+      const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/auth/callback?error=${encodeURIComponent(errorMessage)}`);
     }
   }
 
