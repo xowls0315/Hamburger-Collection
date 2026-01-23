@@ -71,13 +71,22 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
       )}
       <div className="mb-3 aspect-video w-full rounded-lg bg-gray-200 relative overflow-hidden">
         {menuItem.imageUrl ? (
-          <Image
-            src={menuItem.imageUrl}
-            alt={menuItem.name}
-            fill
-            className="object-contain"
-            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-          />
+          // 맘스터치 이미지는 Next.js Image Optimization이 실패하므로 unoptimized 사용
+          menuItem.imageUrl.includes('momstouch.co.kr') ? (
+            <img
+              src={menuItem.imageUrl}
+              alt={menuItem.name}
+              className="h-full w-full object-contain"
+            />
+          ) : (
+            <Image
+              src={menuItem.imageUrl}
+              alt={menuItem.name}
+              fill
+              className="object-contain"
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+            />
+          )
         ) : (
           <div className="flex h-full items-center justify-center text-gray-400">
             🍔
