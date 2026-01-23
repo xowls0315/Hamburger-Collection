@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { IoLocationOutline } from "react-icons/io5";
@@ -14,7 +14,7 @@ import {
 import MenuCard from "../../../_components/ui/MenuCard";
 import { MenuCardSkeleton } from "../../../_components/ui/Skeleton";
 
-export default function BrandPage() {
+function BrandPageContent() {
   const params = useParams();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -270,5 +270,26 @@ export default function BrandPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BrandPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-4 py-8">
+          <div className="mb-6">
+            <div className="h-8 w-48 bg-gray-200 rounded animate-pulse" />
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+              <MenuCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BrandPageContent />
+    </Suspense>
   );
 }

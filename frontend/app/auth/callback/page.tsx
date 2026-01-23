@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../hooks/useAuth";
 import { Skeleton } from "../../../_components/ui/Skeleton";
 import { refreshToken } from "../../../lib/api";
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refreshUser, setAccessToken } = useAuth();
@@ -60,5 +60,30 @@ export default function AuthCallbackPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <div className="w-full max-w-md space-y-6 rounded-lg border border-gray-200 bg-white p-8 shadow-sm">
+            <div className="text-center">
+              <Skeleton circle height={80} width={80} className="mx-auto mb-4" />
+              <Skeleton height={24} width={200} className="mx-auto mb-2" />
+              <Skeleton height={16} width={150} className="mx-auto" />
+            </div>
+            <div className="space-y-3">
+              <Skeleton height={12} width="100%" />
+              <Skeleton height={12} width="90%" />
+              <Skeleton height={12} width="95%" />
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

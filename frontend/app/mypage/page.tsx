@@ -65,11 +65,11 @@ export default function MyPage() {
           </div>
           {/* 내 글 영역 스켈레톤 */}
           <div className="rounded-lg border border-gray-200 bg-white p-4 sm:p-6">
-            <Skeleton className="mb-3 sm:mb-4" height={20} width={96} className="sm:h-6 sm:w-32" />
+            <Skeleton className="mb-3 sm:mb-4 sm:h-6 sm:w-32" height={20} width={96} />
             <div className="space-y-2">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="rounded-lg border border-gray-200 p-3 sm:p-4">
-                  <Skeleton className="mb-2" height={18} width="75%" className="sm:h-5" />
+                  <Skeleton className="mb-2 sm:h-5" height={18} width="75%" />
                   <Skeleton height={14} width="50%" className="sm:h-4" />
                 </div>
               ))}

@@ -43,9 +43,9 @@ async function fetchApi<T>(
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
   // AccessToken이 있으면 Authorization header에 추가
-  const headers: HeadersInit = {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    ...fetchOptions.headers,
+    ...(fetchOptions.headers as Record<string, string>),
   };
 
   const accessToken = getAccessToken?.();
@@ -70,9 +70,9 @@ async function fetchApi<T>(
           const newAccessToken = await refreshTokenCallback();
           if (newAccessToken) {
             // 새 accessToken으로 원래 요청 재시도
-            const retryHeaders: HeadersInit = {
+            const retryHeaders: Record<string, string> = {
               "Content-Type": "application/json",
-              ...fetchOptions.headers,
+              ...(fetchOptions.headers as Record<string, string>),
               "Authorization": `Bearer ${newAccessToken}`,
             };
 

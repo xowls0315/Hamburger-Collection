@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlPencil } from "react-icons/sl";
@@ -9,7 +9,7 @@ import { useAuth } from "../../hooks/useAuth";
 import { PostCardSkeleton } from "../../_components/ui/Skeleton";
 import { formatDate } from "../../utils/formatDate";
 
-export default function BoardPage() {
+function BoardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -153,5 +153,23 @@ export default function BoardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function BoardPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+          <div className="space-y-4">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <PostCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BoardPageContent />
+    </Suspense>
   );
 }
