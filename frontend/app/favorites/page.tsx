@@ -68,9 +68,9 @@ export default function FavoritesPage() {
       <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-gray-900">즐겨찾기</h1>
 
       {favorites.length > 0 ? (
-        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
           {favorites.map((favorite) => (
-            <div key={favorite.id} className="relative">
+            <div key={favorite.id} className="relative h-full">
               <MenuCard
                 menuItem={favorite.menuItem}
                 brandSlug={favorite.menuItem.brand.slug}

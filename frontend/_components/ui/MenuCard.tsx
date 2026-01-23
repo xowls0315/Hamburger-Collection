@@ -53,7 +53,7 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
   };
 
   return (
-    <div className="group rounded-lg border border-gray-200 bg-white p-4 transition-all hover:shadow-lg relative">
+    <div className="group flex flex-col h-full rounded-lg border border-gray-200 bg-white p-4 transition-all hover:shadow-lg relative">
       {/* 즐겨찾기 별표 (왼쪽 상단) */}
       {user && (
         <button
@@ -69,7 +69,8 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
           )}
         </button>
       )}
-      <div className="mb-3 aspect-video w-full rounded-lg bg-gray-200 relative overflow-hidden">
+      {/* 이미지 영역 */}
+      <div className="mb-3 aspect-video w-full rounded-lg bg-gray-200 relative overflow-hidden shrink-0">
         {menuItem.imageUrl ? (
           // 맘스터치 이미지는 Next.js Image Optimization이 실패하므로 unoptimized 사용
           menuItem.imageUrl.includes('momstouch.co.kr') ? (
@@ -93,21 +94,30 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
           </div>
         )}
       </div>
-      <h3 className="mb-2 font-semibold text-gray-800">{menuItem.name}</h3>
-      {menuItem.description && (
-        <p className="mb-2 text-sm text-gray-600 line-clamp-2">
-          {menuItem.description}
-        </p>
-      )}
-      <div className="mb-2 text-sm text-gray-600">
-        {kcal !== undefined && <span className="underline">칼로리: {kcal} kcal</span>}
+      {/* 텍스트 영역 (flex-1로 남은 공간 차지) */}
+      <div className="flex flex-col flex-1 min-h-0">
+        <h3 className="mb-2 font-semibold text-gray-800 shrink-0">{menuItem.name}</h3>
+        {/* Description 영역 - 고정 높이 설정 */}
+        <div className="mb-2 min-h-10 shrink-0">
+          {menuItem.description ? (
+            <p className="text-sm text-gray-600 line-clamp-2">
+              {menuItem.description}
+            </p>
+          ) : (
+            <div className="h-10"></div>
+          )}
+        </div>
+        <div className="mb-2 text-sm text-gray-600 shrink-0">
+          {kcal !== undefined && <span className="underline">칼로리: {kcal} kcal</span>}
+        </div>
+        {/* 상세보기 버튼 - 하단 고정 */}
+        <Link
+          href={`/brand/${brandSlug}/menu/${menuItem.id}`}
+          className="mt-auto w-fit flex items-center gap-1 text-md font-bold text-orange-600 hover:underline shrink-0"
+        >
+          상세보기 <FaLongArrowAltRight />
+        </Link>
       </div>
-      <Link
-        href={`/brand/${brandSlug}/menu/${menuItem.id}`}
-        className="w-[fit-content] flex items-center gap-1 text-md font-bold text-orange-600 hover:underline"
-      >
-        상세보기 <FaLongArrowAltRight />
-      </Link>
     </div>
   );
 }

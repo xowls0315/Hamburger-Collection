@@ -205,7 +205,7 @@ function BrandPageContent() {
       {/* 메뉴 리스트 */}
       {paginatedItems && paginatedItems.length > 0 ? (
         <>
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 items-stretch">
             {paginatedItems.map((menuItem) => (
               <MenuCard key={menuItem.id} menuItem={menuItem} brandSlug={slug} />
             ))}
