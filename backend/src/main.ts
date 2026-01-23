@@ -11,9 +11,12 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // CORS 설정
+  const frontendUrl = configService.get('FRONTEND_URL') || 'http://localhost:3000';
   app.enableCors({
-    origin: configService.get('FRONTEND_URL') || 'http://localhost:3000',
+    origin: frontendUrl,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
   // Cookie Parser

@@ -63,11 +63,14 @@ export class AuthController {
         await this.authService.kakaoLogin(code);
 
       // Refresh Token만 HttpOnly Cookie에 저장
+      // 크로스 도메인 쿠키 전송을 위해 sameSite: 'none' 사용 (HTTPS 필수)
+      const isProduction = this.configService.get('NODE_ENV') === 'production';
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
-        secure: this.configService.get('NODE_ENV') === 'production',
-        sameSite: 'lax',
+        secure: isProduction, // HTTPS에서만 작동
+        sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
+        path: '/', // 모든 경로에서 쿠키 사용 가능
       });
 
       // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
@@ -124,7 +127,13 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
   async logout(@Res() res: Response) {
-    res.clearCookie('refreshToken');
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    res.clearCookie('refreshToken', {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      path: '/',
+    });
     return res.json({ success: true });
   }
 }
