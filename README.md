@@ -570,7 +570,7 @@ ingest_logs (수집 로그)
   <tr>
     <td align="center">
       <div style="background-color:#f5f5f5; padding:10px; border-radius:12px; display:inline-block;">
-        <img width="1840" height="611" alt="image" src="https://github.com/user-attachments/assets/4c004980-8790-4813-ae56-32ac2ac45265" />
+         <img width="1837" height="597" alt="image" src="https://github.com/user-attachments/assets/db7e03da-55e9-4503-aef1-6fc6156de87d" />
       </div>
     </td>
   </tr>
