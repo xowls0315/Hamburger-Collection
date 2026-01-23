@@ -91,7 +91,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '사용자 정보 반환' })
   @ApiResponse({ status: 401, description: '인증 필요' })
-  async getMe(@Req() req: Request) {
+  async getMe(@Req() req: any) {
     return req.user;
   }
 
