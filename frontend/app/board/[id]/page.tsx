@@ -169,7 +169,7 @@ export default function PostDetailPage() {
     );
   }
 
-  const isAuthor = user && user.id === post.author.id;
+  const isAuthor = user && post.author && user.id === post.author.id;
 
   return (
     <div className="container mx-auto px-4 py-8">
@@ -188,7 +188,7 @@ export default function PostDetailPage() {
           <div>
             <h1 className="mb-2 text-3xl font-bold text-gray-900">{post.title}</h1>
             <div className="flex items-center gap-4 text-sm text-gray-500">
-              <span>{post.author.nickname}</span>
+              <span>{post.author?.nickname || "익명"}</span>
               <span>{formatDate(post.createdAt)}</span>
               <span>조회 {post.viewCount}</span>
             </div>

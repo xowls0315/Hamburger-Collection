@@ -23,7 +23,8 @@ export default function EditPostPage() {
     const loadPost = async () => {
       try {
         const post = await getPost(id);
-        if (user && user.id !== post.author.id) {
+        // author가 없거나 사용자가 작성자가 아니면 접근 불가
+        if (user && post.author && user.id !== post.author.id) {
           router.push(`/board/${id}`);
           return;
         }

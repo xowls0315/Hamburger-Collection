@@ -101,7 +101,7 @@ export default function BoardPage() {
                     {post.title}
                   </h2>
                   <span className="text-xs sm:text-sm text-gray-500 whitespace-nowrap">
-                    {post.author.nickname}
+                    {post.author?.nickname || "익명"}
                   </span>
                 </div>
                 <p className="mb-3 text-sm sm:text-base text-gray-600 line-clamp-2">{post.content}</p>
