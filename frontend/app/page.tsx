@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { LuClipboardList } from "react-icons/lu";
 import { FaMagnifyingGlass } from "react-icons/fa6";
-import { getBrands, Brand } from "./lib/api";
+import { getBrands, Brand } from "../lib/api";
 
 // 헤더 순서와 동일한 브랜드 순서
 const brandOrder = [

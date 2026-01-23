@@ -13,9 +13,10 @@ import {
   deletePost,
   Post,
   Comment,
-} from "../../lib/api";
-import { useAuth } from "../../context/AuthContext";
-import { PostCardSkeleton, CommentSkeleton, Skeleton } from "../../components/Skeleton";
+} from "../../../lib/api";
+import { useAuth } from "../../../hooks/useAuth";
+import { PostCardSkeleton, CommentSkeleton, Skeleton } from "../../../_components/ui/Skeleton";
+import { formatDateTime } from "../../../utils/formatDate";
 
 export default function PostDetailPage() {
   const params = useParams();
@@ -136,16 +137,7 @@ export default function PostDetailPage() {
     }
   };
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString("ko-KR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
+  const formatDate = formatDateTime;
 
   if (loading || deleting) {
     return (

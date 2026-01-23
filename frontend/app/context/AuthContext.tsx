@@ -1,7 +1,7 @@
 "use client";
 
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { User, getMe, logout as apiLogout, refreshToken, getKakaoLoginUrl } from "../lib/api";
+import { createContext, useContext, useState, useEffect, useCallback } from "react";
+import { User, getMe, logout as apiLogout, refreshToken as apiRefreshToken, getKakaoLoginUrl, setAccessTokenGetter, setAccessTokenSetter, setRefreshTokenCallback } from "../../lib/api";
 
 interface AuthContextType {
   user: User | null;
@@ -9,6 +9,7 @@ interface AuthContextType {
   login: () => void;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  setAccessToken: (token: string | null) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -16,6 +17,24 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
+
+  // AccessToken getter/setter를 api.ts에 등록
+  useEffect(() => {
+    setAccessTokenGetter(() => accessToken);
+    setAccessTokenSetter((token: string | null) => setAccessToken(token));
+    setRefreshTokenCallback(async () => {
+      try {
+        const result = await apiRefreshToken();
+        setAccessToken(result.accessToken);
+        return result.accessToken;
+      } catch {
+        setAccessToken(null);
+        setUser(null);
+        return null;
+      }
+    });
+  }, [accessToken]);
 
   const refreshUser = useCallback(async () => {
     try {
@@ -33,12 +52,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userData = await getMe();
         setUser(userData);
       } catch {
-        // 인증되지 않은 상태 - 토큰 갱신 시도
+        // 인증되지 않은 상태 - refreshToken으로 accessToken 갱신 시도
         try {
-          await refreshToken();
+          const result = await apiRefreshToken();
+          setAccessToken(result.accessToken);
           const userData = await getMe();
           setUser(userData);
         } catch {
+          setAccessToken(null);
           setUser(null);
         }
       } finally {
@@ -57,12 +78,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await apiLogout();
     } finally {
+      setAccessToken(null);
       setUser(null);
     }
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, setAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

@@ -5,8 +5,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { FaLongArrowAltRight } from "react-icons/fa";
 import { FaStar, FaRegStar } from "react-icons/fa";
-import { MenuItem, checkFavorite, addFavorite, removeFavorite } from "../lib/api";
-import { useAuth } from "../context/AuthContext";
+import { MenuItem, checkFavorite, addFavorite, removeFavorite } from "../../lib/api";
+import { useAuth } from "../../hooks/useAuth";
 
 interface MenuCardProps {
   menuItem: MenuItem;
@@ -27,7 +27,7 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
     }
   }, [user, menuItem.id]);
 
-  const handleToggleFavorite = async (e: React.MouseEvent) => {
+  const handleToggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
 

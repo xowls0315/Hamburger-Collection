@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LuClipboardList } from "react-icons/lu";
+import { LuClipboardList, LuCircleUserRound } from "react-icons/lu";
 import { FaUserCircle, FaStar } from "react-icons/fa";
 import Skeleton from "react-loading-skeleton";
-import { useAuth } from "../context/AuthContext";
+import { useAuth } from "../../hooks/useAuth";
 import Image from "next/image";
 
 export default function Sidebar() {
@@ -13,7 +13,7 @@ export default function Sidebar() {
   const { user, loading, login, logout } = useAuth();
 
   return (
-    <aside className="hidden w-64 border-l border-gray-200 bg-gray-50 p-4 md:block">
+    <aside className="hidden w-64 border-l border-gray-200 bg-gray-50 p-4 lg:block">
       <div className="space-y-4">
         {/* 로그인 영역 */}
         <div className="rounded-lg border border-gray-200 bg-white p-4">
@@ -28,7 +28,7 @@ export default function Sidebar() {
           ) : user ? (
             <div>
               <div className="mb-2 flex items-center gap-2">
-                {user.profileImage && (
+                {user.profileImage ? (
                   <Image
                     src={user.profileImage}
                     alt={user.nickname}
@@ -36,6 +36,8 @@ export default function Sidebar() {
                     height={32}
                     className="rounded-full"
                   />
+                ) : (
+                  <LuCircleUserRound className="text-2xl text-gray-400" />
                 )}
                 <div className="text-sm font-medium text-gray-800">
                   {user.nickname}

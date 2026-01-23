@@ -10,9 +10,9 @@ import {
   getMenuItems,
   MenuListResponse,
   MenuItem,
-} from "../../lib/api";
-import MenuCard from "../../components/MenuCard";
-import { MenuCardSkeleton } from "../../components/Skeleton";
+} from "../../../lib/api";
+import MenuCard from "../../../_components/ui/MenuCard";
+import { MenuCardSkeleton } from "../../../_components/ui/Skeleton";
 
 export default function BrandPage() {
   const params = useParams();
@@ -86,15 +86,15 @@ export default function BrandPage() {
 
   if (loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-6 flex items-center justify-between">
-          <div className="h-9 w-48 animate-pulse rounded bg-gray-200" />
-          <div className="h-10 w-32 animate-pulse rounded bg-gray-200" />
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+        <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="h-7 sm:h-9 w-32 sm:w-48 animate-pulse rounded bg-gray-200" />
+          <div className="h-8 sm:h-10 w-24 sm:w-32 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="mb-6 flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-white p-4">
-          <div className="h-10 w-40 animate-pulse rounded bg-gray-200" />
+        <div className="mb-4 sm:mb-6 flex flex-wrap gap-2 sm:gap-4 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
+          <div className="h-8 sm:h-10 w-32 sm:w-40 animate-pulse rounded bg-gray-200" />
         </div>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <MenuCardSkeleton key={i} />
           ))}
@@ -105,8 +105,8 @@ export default function BrandPage() {
 
   if (!brand) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <div className="text-center text-red-500">브랜드를 찾을 수 없습니다.</div>
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+        <div className="text-center text-sm sm:text-base text-red-500">브랜드를 찾을 수 없습니다.</div>
       </div>
     );
   }
@@ -149,24 +149,24 @@ export default function BrandPage() {
   );
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-bold text-gray-900">{brand.name}</h1>
-        <div className="flex items-center gap-3">
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+      <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{brand.name}</h1>
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto">
           {/* 검색창 */}
-          <div className="relative">
-            <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+          <div className="relative w-full sm:w-48 md:w-64">
+            <FaSearch className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm sm:text-base" />
             <input
               type="text"
               placeholder="메뉴 검색..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-64 rounded-lg border border-gray-300 bg-white px-10 py-2 text-sm focus:border-orange-500 focus:outline-none"
+              className="w-full rounded-lg border border-gray-300 bg-white pl-8 sm:pl-10 pr-8 sm:pr-10 py-2 text-sm focus:border-orange-500 focus:outline-none"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer"
+                className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 cursor-pointer text-sm sm:text-base"
               >
                 ✕
               </button>
@@ -174,20 +174,20 @@ export default function BrandPage() {
           </div>
           <Link
             href={`/brand/${slug}/stores`}
-            className="flex items-center gap-2 rounded-lg bg-orange-500 px-4 py-2 text-white hover:bg-orange-600"
+            className="flex items-center justify-center gap-2 rounded-lg bg-orange-500 px-3 sm:px-4 py-2 text-sm sm:text-base text-white hover:bg-orange-600 transition-colors whitespace-nowrap"
           >
-            <IoLocationOutline className="text-lg" />
-            매장 찾기
+            <IoLocationOutline className="text-base sm:text-lg" />
+            <span>매장 찾기</span>
           </Link>
         </div>
       </div>
 
       {/* 정렬 영역 */}
-      <div className="mb-6 flex flex-wrap gap-4 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="mb-4 sm:mb-6 flex flex-wrap gap-2 sm:gap-4 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
         <select
           value={sort}
           onChange={(e) => handleSortChange(e.target.value)}
-          className="rounded-lg border border-gray-300 px-4 py-2 text-sm"
+          className="rounded-lg border border-gray-300 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm w-full sm:w-auto"
         >
           <option value="">정렬</option>
           <option value="kcal_asc">칼로리 낮은순</option>
@@ -197,7 +197,7 @@ export default function BrandPage() {
 
       {/* 검색 결과 표시 */}
       {debouncedSearchQuery && (
-        <div className="mb-4 text-sm text-gray-600">
+        <div className="mb-3 sm:mb-4 text-xs sm:text-sm text-gray-600">
           &quot;{debouncedSearchQuery}&quot; 검색 결과: {filteredItems.length}개
         </div>
       )}
@@ -205,7 +205,7 @@ export default function BrandPage() {
       {/* 메뉴 리스트 */}
       {paginatedItems && paginatedItems.length > 0 ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {paginatedItems.map((menuItem) => (
               <MenuCard key={menuItem.id} menuItem={menuItem} brandSlug={slug} />
             ))}
@@ -213,7 +213,7 @@ export default function BrandPage() {
 
           {/* 페이지네이션 */}
           {totalPages > 1 && (
-            <div className="mt-8 flex justify-center gap-2">
+            <div className="mt-6 sm:mt-8 flex justify-center gap-1 sm:gap-2 flex-wrap">
               <button
                 onClick={() => {
                   if (debouncedSearchQuery) {
@@ -223,7 +223,7 @@ export default function BrandPage() {
                   }
                 }}
                 disabled={currentPage === 1}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="rounded-lg border border-gray-300 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 이전
               </button>
@@ -237,7 +237,7 @@ export default function BrandPage() {
                       handlePageChange(p);
                     }
                   }}
-                  className={`rounded-lg px-4 py-2 text-sm ${
+                  className={`rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm ${
                     currentPage === p
                       ? "bg-orange-500 text-white"
                       : "border border-gray-300 hover:bg-gray-100 cursor-pointer"
@@ -255,7 +255,7 @@ export default function BrandPage() {
                   }
                 }}
                 disabled={currentPage === totalPages}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                className="rounded-lg border border-gray-300 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 다음
               </button>
@@ -263,7 +263,7 @@ export default function BrandPage() {
           )}
         </>
       ) : (
-        <div className="text-center text-gray-500 py-8">
+        <div className="text-center text-xs sm:text-sm text-gray-500 py-6 sm:py-8">
           {debouncedSearchQuery
             ? `"${debouncedSearchQuery}"에 대한 검색 결과가 없습니다.`
             : "메뉴가 없습니다."}

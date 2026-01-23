@@ -4,9 +4,9 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { FaLongArrowAltLeft } from "react-icons/fa";
-import { getPost, updatePost } from "../../../lib/api";
-import { useAuth } from "../../../context/AuthContext";
-import { Skeleton } from "../../../components/Skeleton";
+import { getPost, updatePost } from "../../../../lib/api";
+import { useAuth } from "../../../../hooks/useAuth";
+import { Skeleton } from "../../../../_components/ui/Skeleton";
 
 export default function EditPostPage() {
   const router = useRouter();
@@ -39,7 +39,7 @@ export default function EditPostPage() {
     loadPost();
   }, [id, user, router]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!title.trim() || !content.trim()) {
@@ -143,7 +143,7 @@ export default function EditPostPage() {
             <button
               type="submit"
               disabled={saving}
-              className="rounded-lg bg-orange-500 px-6 py-2 text-sm text-white hover:bg-orange-600 disabled:opacity-50"
+              className="rounded-lg bg-orange-500 px-6 py-2 text-sm text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {saving ? "수정 중..." : "수정하기"}
             </button>

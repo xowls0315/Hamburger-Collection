@@ -1,14 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FaStar, FaRegStar } from "react-icons/fa";
-import { getFavorites, removeFavorite, Favorite, MenuItem } from "../lib/api";
-import { useAuth } from "../context/AuthContext";
-import { MenuCardSkeleton } from "../components/Skeleton";
-import MenuCard from "../components/MenuCard";
+import { getFavorites, removeFavorite, Favorite, MenuItem } from "../../lib/api";
+import { useAuth } from "../../hooks/useAuth";
+import { MenuCardSkeleton } from "../../_components/ui/Skeleton";
+import MenuCard from "../../_components/ui/MenuCard";
 
 export default function FavoritesPage() {
   const router = useRouter();
@@ -50,9 +48,9 @@ export default function FavoritesPage() {
 
   if (authLoading || loading) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="mb-6 text-3xl font-bold text-gray-900">즐겨찾기</h1>
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+        <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-gray-900">즐겨찾기</h1>
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <MenuCardSkeleton key={i} />
           ))}
@@ -66,11 +64,11 @@ export default function FavoritesPage() {
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="mb-6 text-3xl font-bold text-gray-900">즐겨찾기</h1>
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+      <h1 className="mb-4 sm:mb-6 text-2xl sm:text-3xl font-bold text-gray-900">즐겨찾기</h1>
 
       {favorites.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {favorites.map((favorite) => (
             <div key={favorite.id} className="relative">
               <MenuCard
@@ -81,10 +79,10 @@ export default function FavoritesPage() {
           ))}
         </div>
       ) : (
-        <div className="text-center py-12">
-          <FaRegStar className="mx-auto mb-4 text-6xl text-gray-300" />
-          <p className="text-lg text-gray-500 mb-2">즐겨찾기한 메뉴가 없습니다.</p>
-          <p className="text-sm text-gray-400">
+        <div className="text-center py-8 sm:py-12">
+          <FaRegStar className="mx-auto mb-3 sm:mb-4 text-4xl sm:text-6xl text-gray-300" />
+          <p className="text-base sm:text-lg text-gray-500 mb-2">즐겨찾기한 메뉴가 없습니다.</p>
+          <p className="text-xs sm:text-sm text-gray-400 px-4">
             메뉴 카드의 별표를 클릭하여 즐겨찾기에 추가해보세요.
           </p>
         </div>

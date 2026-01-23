@@ -44,10 +44,10 @@ export class AuthController {
   @ApiOperation({
     summary: '카카오 로그인 콜백',
     description:
-      '카카오 OAuth 콜백을 처리하고 JWT 토큰을 HttpOnly 쿠키로 설정합니다.',
+      '카카오 OAuth 콜백을 처리합니다. Refresh Token은 HttpOnly 쿠키로 설정합니다. Access Token은 프론트엔드에서 /auth/refresh 엔드포인트를 호출하여 받아야 합니다.',
   })
   @ApiQuery({ name: 'code', description: '카카오 인증 코드' })
-  @ApiResponse({ status: 200, description: '로그인 성공' })
+  @ApiResponse({ status: 200, description: '로그인 성공 (refreshToken은 쿠키에 설정, accessToken은 /auth/refresh로 받기)' })
   @ApiResponse({ status: 400, description: '인증 코드 없음' })
   @ApiResponse({ status: 500, description: '로그인 실패' })
   async kakaoCallback(@Query('code') code: string, @Res() res: Response) {
@@ -59,17 +59,10 @@ export class AuthController {
         });
       }
 
-      const { user, accessToken, refreshToken } =
+      const { refreshToken } =
         await this.authService.kakaoLogin(code);
 
-      // HttpOnly Cookie에 토큰 저장
-      res.cookie('accessToken', accessToken, {
-        httpOnly: true,
-        secure: this.configService.get('NODE_ENV') === 'production',
-        sameSite: 'lax',
-        maxAge: 15 * 60 * 1000, // 15분
-      });
-
+      // Refresh Token만 HttpOnly Cookie에 저장
       res.cookie('refreshToken', refreshToken, {
         httpOnly: true,
         secure: this.configService.get('NODE_ENV') === 'production',
@@ -77,7 +70,8 @@ export class AuthController {
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
       });
 
-      // 프론트엔드로 리다이렉트
+      // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
+      // 프론트엔드에서 /auth/refresh를 호출하여 받아야 함
       const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
       return res.redirect(`${frontendUrl}/auth/callback?success=true`);
     } catch (error: any) {
@@ -106,9 +100,9 @@ export class AuthController {
   @ApiOperation({
     summary: '토큰 갱신',
     description:
-      'Refresh Token으로 새 Access Token을 발급받습니다. (쿠키 사용)',
+      'Refresh Token으로 새 Access Token을 발급받습니다. Refresh Token은 쿠키에서 읽고, Access Token은 응답 body로 반환합니다.',
   })
-  @ApiResponse({ status: 200, description: '토큰 갱신 성공' })
+  @ApiResponse({ status: 200, description: '토큰 갱신 성공', schema: { properties: { accessToken: { type: 'string' } } } })
   @ApiResponse({ status: 401, description: 'Refresh token 없음 또는 유효하지 않음' })
   async refresh(@Req() req: Request, @Res() res: Response) {
     const refreshToken = req.cookies?.refreshToken;
@@ -118,25 +112,18 @@ export class AuthController {
 
     const { accessToken } = await this.authService.refreshToken(refreshToken);
 
-    res.cookie('accessToken', accessToken, {
-      httpOnly: true,
-      secure: this.configService.get('NODE_ENV') === 'production',
-      sameSite: 'lax',
-      maxAge: 15 * 60 * 1000,
-    });
-
-    return res.json({ success: true });
+    // Access Token을 응답 body로 반환 (메모리 저장용)
+    return res.json({ accessToken });
   }
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: '로그아웃',
-    description: 'Access Token과 Refresh Token 쿠키를 삭제합니다.',
+    description: 'Refresh Token 쿠키를 삭제합니다. Access Token은 클라이언트 메모리에서 제거해야 합니다.',
   })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
   async logout(@Res() res: Response) {
-    res.clearCookie('accessToken');
     res.clearCookie('refreshToken');
     return res.json({ success: true });
   }

@@ -16,6 +16,23 @@ class ApiError extends Error {
   }
 }
 
+// AccessToken을 메모리에서 가져오는 함수 (외부에서 주입)
+let getAccessToken: (() => string | null) | null = null;
+let setAccessToken: ((token: string | null) => void) | null = null;
+let refreshTokenCallback: (() => Promise<string | null>) | null = null;
+
+export function setAccessTokenGetter(fn: () => string | null) {
+  getAccessToken = fn;
+}
+
+export function setAccessTokenSetter(fn: (token: string | null) => void) {
+  setAccessToken = fn;
+}
+
+export function setRefreshTokenCallback(fn: () => Promise<string | null>) {
+  refreshTokenCallback = fn;
+}
+
 async function fetchApi<T>(
   endpoint: string,
   options: FetchOptions = {}
@@ -25,20 +42,71 @@ async function fetchApi<T>(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
+  // AccessToken이 있으면 Authorization header에 추가
+  const headers: HeadersInit = {
+    "Content-Type": "application/json",
+    ...fetchOptions.headers,
+  };
+
+  const accessToken = getAccessToken?.();
+  if (accessToken) {
+    headers["Authorization"] = `Bearer ${accessToken}`;
+  }
+
   try {
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...fetchOptions,
       signal: controller.signal,
-      credentials: "include", // 쿠키 포함
-      headers: {
-        "Content-Type": "application/json",
-        ...fetchOptions.headers,
-      },
+      credentials: "include", // 쿠키 포함 (refreshToken용)
+      headers,
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
+      // 401 에러이고 refreshTokenCallback이 있으면 자동 refresh 시도
+      if (response.status === 401 && refreshTokenCallback && !endpoint.includes('/auth/refresh')) {
+        try {
+          const newAccessToken = await refreshTokenCallback();
+          if (newAccessToken) {
+            // 새 accessToken으로 원래 요청 재시도
+            const retryHeaders: HeadersInit = {
+              "Content-Type": "application/json",
+              ...fetchOptions.headers,
+              "Authorization": `Bearer ${newAccessToken}`,
+            };
+
+            const retryResponse = await fetch(`${API_BASE_URL}${endpoint}`, {
+              ...fetchOptions,
+              signal: controller.signal,
+              credentials: "include",
+              headers: retryHeaders,
+            });
+
+            if (!retryResponse.ok) {
+              const errorData = await retryResponse.json().catch(() => ({}));
+              let errorMessage = errorData.message || `HTTP Error: ${retryResponse.status}`;
+              if (Array.isArray(errorMessage)) {
+                errorMessage = errorMessage[0] || `HTTP Error: ${retryResponse.status}`;
+              }
+              throw new ApiError(retryResponse.status, errorMessage);
+            }
+
+            const text = await retryResponse.text();
+            if (!text || text.trim() === "") {
+              return {} as T;
+            }
+            try {
+              return JSON.parse(text) as T;
+            } catch {
+              return {} as T;
+            }
+          }
+        } catch (refreshError) {
+          // Refresh 실패 시 원래 에러 처리로 진행
+        }
+      }
+
       const errorData = await response.json().catch(() => ({}));
       
       // NestJS validation 에러 형식 처리
@@ -203,8 +271,8 @@ export async function getMe(): Promise<User> {
   return fetchApi<User>("/auth/me");
 }
 
-export async function refreshToken(): Promise<{ success: boolean }> {
-  return fetchApi<{ success: boolean }>("/auth/refresh", { method: "POST" });
+export async function refreshToken(): Promise<{ accessToken: string }> {
+  return fetchApi<{ accessToken: string }>("/auth/refresh", { method: "POST" });
 }
 
 export async function logout(): Promise<{ success: boolean }> {

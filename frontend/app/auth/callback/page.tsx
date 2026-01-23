@@ -2,13 +2,14 @@
 
 import { useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useAuth } from "../../context/AuthContext";
-import { Skeleton } from "../../components/Skeleton";
+import { useAuth } from "../../../hooks/useAuth";
+import { Skeleton } from "../../../_components/ui/Skeleton";
+import { refreshToken } from "../../../lib/api";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { refreshUser } = useAuth();
+  const { refreshUser, setAccessToken } = useAuth();
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -22,16 +23,27 @@ export default function AuthCallbackPage() {
       }
 
       if (success === "true") {
-        // 사용자 정보 새로고침
-        await refreshUser();
-        router.push("/");
+        try {
+          // RefreshToken 쿠키를 사용하여 AccessToken 받기 (Authorization 헤더 방식)
+          const result = await refreshToken();
+          setAccessToken(result.accessToken);
+          
+          // 사용자 정보 새로고침
+          await refreshUser();
+          
+          router.push("/");
+        } catch (error) {
+          console.error("토큰 갱신 실패:", error);
+          alert("로그인 처리 중 오류가 발생했습니다.");
+          router.push("/");
+        }
       } else {
         router.push("/");
       }
     };
 
     handleCallback();
-  }, [searchParams, router, refreshUser]);
+  }, [searchParams, router, refreshUser, setAccessToken]);
 
   return (
     <div className="flex min-h-screen items-center justify-center">

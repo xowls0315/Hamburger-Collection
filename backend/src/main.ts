@@ -46,12 +46,16 @@ async function bootstrap() {
 - 로그인: \`GET /auth/kakao\` → 카카오 로그인 페이지로 리다이렉트
     `)
     .setVersion('1.0')
+    .addTag('health', '서버 상태 확인 API')
     .addTag('brands', '브랜드 관련 API')
     .addTag('menu-items', '메뉴 관련 API')
     .addTag('stores', '매장 찾기 API')
     .addTag('auth', '인증 관련 API')
     .addTag('posts', '게시글 API')
     .addTag('comments', '댓글 API')
+    .addTag('favorites', '즐겨찾기 API')
+    .addTag('users', '사용자 API')
+    .addTag('admin', '관리자 API (메뉴 수집)')
     .addBearerAuth(
       {
         type: 'http',

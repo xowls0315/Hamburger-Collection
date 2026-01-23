@@ -15,12 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new Error('JWT_ACCESS_SECRET is not defined');
     }
     super({
-      jwtFromRequest: ExtractJwt.fromExtractors([
-        ExtractJwt.fromAuthHeaderAsBearerToken(), // Authorization: Bearer <token> (Postman 테스트용)
-        (request) => {
-          return request?.cookies?.accessToken; // 쿠키에서도 읽기 (프론트엔드용)
-        },
-      ]),
+      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(), // Authorization: Bearer <token>만 사용
       ignoreExpiration: false,
       secretOrKey: secret,
     });

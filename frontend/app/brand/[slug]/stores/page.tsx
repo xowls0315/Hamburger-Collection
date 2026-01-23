@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FaLongArrowAltRight, FaLongArrowAltLeft } from "react-icons/fa";
 import { IoLocationOutline } from "react-icons/io5";
-import { getBrand, searchStores, Store } from "../../../lib/api";
-import { StoreCardSkeleton, Skeleton } from "../../../components/Skeleton";
+import { getBrand, searchStores, Store } from "../../../../lib/api";
+import { StoreCardSkeleton } from "../../../../_components/ui/Skeleton";
 
 declare global {
   interface Window {
@@ -26,7 +26,6 @@ export default function StoresPage() {
   const [brand, setBrand] = useState<any>(null);
   const [stores, setStores] = useState<Store[]>([]);
   const [loading, setLoading] = useState(false);
-  const [showList, setShowList] = useState(true);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
     null
   );
@@ -409,28 +408,20 @@ export default function StoresPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <Link
-            href={`/brand/${slug}`}
-            className="inline-flex items-center gap-2 rounded-lg bg-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
-          >
-            <FaLongArrowAltLeft /> {brand?.name || "브랜드"} 메뉴로 돌아가기
-          </Link>
-          <h1 className="mt-2 text-3xl font-bold text-gray-900">
-            {brand?.name || "브랜드"} 매장 찾기
-          </h1>
-        </div>
-        <button
-          onClick={() => setShowList(!showList)}
-          className="md:hidden rounded-lg border border-gray-300 px-4 py-2 text-sm"
+    <div className="container mx-auto px-3 sm:px-4 py-4 sm:py-6 lg:py-8">
+      <div className="mb-4 sm:mb-6">
+        <Link
+          href={`/brand/${slug}`}
+          className="inline-flex items-center gap-2 rounded-lg bg-gray-200 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm font-medium text-gray-700 hover:bg-gray-300 transition-colors"
         >
-          {showList ? "지도 보기" : "리스트 보기"}
-        </button>
+          <FaLongArrowAltLeft /> {brand?.name || "브랜드"} 메뉴로 돌아가기
+        </Link>
+        <h1 className="mt-2 text-2xl sm:text-3xl font-bold text-gray-900">
+          {brand?.name || "브랜드"} 매장 찾기
+        </h1>
       </div>
 
-      <div className="mb-4 rounded-lg border border-gray-200 bg-white p-4">
+      <div className="mb-3 sm:mb-4 rounded-lg border border-gray-200 bg-white p-3 sm:p-4">
         <button
           onClick={(e) => {
             e.preventDefault();
@@ -439,7 +430,7 @@ export default function StoresPage() {
             handleSearch();
           }}
           disabled={loading}
-          className="w-full rounded-lg bg-orange-500 px-4 py-3 text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+          className="w-full rounded-lg bg-orange-500 px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-white hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
         >
           {loading ? (
             <span className="flex items-center justify-center gap-2">
@@ -448,7 +439,7 @@ export default function StoresPage() {
             </span>
           ) : (
             <span className="flex justify-center items-center gap-2 cursor-pointer">
-              <IoLocationOutline className="text-lg" />
+              <IoLocationOutline className="text-base sm:text-lg" />
               내 주변 매장 검색
             </span>
           )}
@@ -463,29 +454,21 @@ export default function StoresPage() {
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2">
+      {/* 모바일: flex column (지도 먼저, 리스트 아래) / 태블릿/PC: grid 2열 */}
+      <div className="flex flex-col md:grid md:grid-cols-2 gap-3 sm:gap-4">
         {/* 지도 영역 */}
-        <div
-          className={`${
-            showList ? "hidden md:block" : "block"
-          } rounded-lg border border-gray-200 bg-gray-100`}
-        >
+        <div className="rounded-lg border border-gray-200 bg-gray-100 order-1">
           <div
             ref={mapRef}
-            className="h-[600px] w-full rounded-lg"
-            style={{ minHeight: "600px" }}
+            className="h-[400px] sm:h-[500px] md:h-[600px] w-full rounded-lg"
+            style={{ minHeight: "400px" }}
           />
         </div>
 
         {/* 매장 리스트 */}
-        <div
-          className={`${
-            showList ? "block" : "hidden md:block"
-          } space-y-4 overflow-y-auto`}
-          style={{ maxHeight: "600px" }}
-        >
+        <div className="space-y-3 sm:space-y-4 overflow-y-auto order-2 md:order-2 md:max-h-[600px]">
           {loading ? (
-            <div className="space-y-4">
+            <div className="space-y-3 sm:space-y-4">
               {[1, 2, 3, 4, 5].map((i) => (
                 <StoreCardSkeleton key={i} />
               ))}
@@ -506,24 +489,24 @@ export default function StoresPage() {
                     mapInstanceRef.current.setLevel(3);
                   }
                 }}
-                className={`rounded-lg border-2 p-4 transition-all cursor-pointer ${
+                className={`rounded-lg border-2 p-3 sm:p-4 transition-all cursor-pointer ${
                   selectedStoreId === store.id
                     ? "border-orange-500 bg-orange-50 shadow-lg"
                     : "border-gray-200 bg-white hover:border-orange-300 hover:shadow-lg"
                 }`}
               >
-                <h3 className={`mb-2 font-semibold ${
+                <h3 className={`mb-2 text-sm sm:text-base font-semibold ${
                   selectedStoreId === store.id ? "text-orange-700" : "text-gray-800"
                 }`}>
                   {store.place_name}
                 </h3>
-                <p className="mb-2 text-sm text-gray-600">
+                <p className="mb-2 text-xs sm:text-sm text-gray-600 line-clamp-2">
                   {store.road_address_name || store.address_name}
                 </p>
                 {store.phone && (
-                  <p className="mb-2 text-sm text-gray-500">전화: {store.phone}</p>
+                  <p className="mb-2 text-xs sm:text-sm text-gray-500">전화: {store.phone}</p>
                 )}
-                <div className="mb-2 flex items-center gap-4 text-sm text-gray-500">
+                <div className="mb-2 flex items-center gap-2 sm:gap-4 text-xs sm:text-sm text-gray-500">
                   <span>거리: 약 {(parseFloat(store.distance) / 1000).toFixed(1)}km</span>
                 </div>
                 <div className="flex gap-2">
@@ -532,15 +515,15 @@ export default function StoresPage() {
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 text-sm text-blue-600 hover:underline"
+                    className="flex items-center gap-1 text-xs sm:text-sm text-blue-600 hover:underline"
                   >
-                    카카오맵에서 보기 <FaLongArrowAltRight />
+                    카카오맵에서 보기 <FaLongArrowAltRight className="text-xs sm:text-sm" />
                   </a>
                 </div>
               </div>
             ))
           ) : (
-            <div className="text-center text-gray-500 py-8">
+            <div className="text-center text-xs sm:text-sm text-gray-500 py-6 sm:py-8">
               {location
                 ? "주변에 매장이 없습니다."
                 : "위치 검색 버튼을 눌러주세요."}

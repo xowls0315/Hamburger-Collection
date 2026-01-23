@@ -4,9 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaLongArrowAltLeft } from "react-icons/fa";
-import { createPost } from "../../lib/api";
-import { useAuth } from "../../context/AuthContext";
-import { Skeleton } from "../../components/Skeleton";
+import { createPost } from "../../../lib/api";
+import { useAuth } from "../../../hooks/useAuth";
+import { Skeleton } from "../../../_components/ui/Skeleton";
 
 export default function NewPostPage() {
   const router = useRouter();
@@ -15,7 +15,7 @@ export default function NewPostPage() {
   const [content, setContent] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     if (!user) {
