@@ -78,12 +78,23 @@ export class AuthService {
       // DB에서 사용자 찾기 또는 생성
       let user = await this.usersService.findByKakaoId(kakaoId);
       if (!user) {
+        // 프로필 이미지 URL이 http://로 시작하면 https://로 변환
+        let profileImageUrl = kakaoUser.kakao_account?.profile?.profile_image_url || null;
+        if (profileImageUrl && profileImageUrl.startsWith('http://')) {
+          profileImageUrl = profileImageUrl.replace('http://', 'https://');
+        }
+        
         user = await this.usersService.create({
           kakaoId,
           nickname: kakaoUser.kakao_account?.profile?.nickname || '사용자',
-          profileImage:
-            kakaoUser.kakao_account?.profile?.profile_image_url || null,
+          profileImage: profileImageUrl,
         });
+      } else {
+        // 기존 사용자의 프로필 이미지도 업데이트 (http -> https 변환)
+        if (user.profileImage && user.profileImage.startsWith('http://')) {
+          user.profileImage = user.profileImage.replace('http://', 'https://');
+          await this.usersService.update(user.id, { profileImage: user.profileImage });
+        }
       }
 
       // JWT 토큰 생성

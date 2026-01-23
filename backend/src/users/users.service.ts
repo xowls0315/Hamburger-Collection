@@ -26,4 +26,13 @@ export class UsersService {
   async findOne(id: string): Promise<User | null> {
     return await this.usersRepository.findOne({ where: { id } });
   }
+
+  async update(id: string, updateData: Partial<User>): Promise<User> {
+    await this.usersRepository.update(id, updateData);
+    const updatedUser = await this.findOne(id);
+    if (!updatedUser) {
+      throw new Error('User not found');
+    }
+    return updatedUser;
+  }
 }

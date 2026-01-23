@@ -49,19 +49,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        // 먼저 refreshToken으로 accessToken을 받아서 시도
+        const result = await apiRefreshToken();
+        setAccessToken(result.accessToken);
         const userData = await getMe();
         setUser(userData);
-      } catch {
-        // 인증되지 않은 상태 - refreshToken으로 accessToken 갱신 시도
-        try {
-          const result = await apiRefreshToken();
-          setAccessToken(result.accessToken);
-          const userData = await getMe();
-          setUser(userData);
-        } catch {
-          setAccessToken(null);
-          setUser(null);
-        }
+      } catch (error) {
+        // refreshToken이 없거나 만료된 경우 - 로그인 필요
+        // 에러를 무시하고 로그인하지 않은 상태로 처리
+        setAccessToken(null);
+        setUser(null);
       } finally {
         setLoading(false);
       }

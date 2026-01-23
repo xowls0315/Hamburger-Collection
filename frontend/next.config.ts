@@ -14,7 +14,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "frankburger.co.kr" },
       { protocol: "https", hostname: "kfcapi.inicis.com" },
       { protocol: "https", hostname: "k.kakaocdn.net" },
+      { protocol: "http", hostname: "k.kakaocdn.net" }, // http도 허용 (카카오 API가 http로 반환할 수 있음)
       { protocol: "https", hostname: "*.kakaocdn.net" }, // 모든 카카오 CDN 서브도메인 허용
+      { protocol: "http", hostname: "*.kakaocdn.net" }, // http도 허용
     ],
   },
 };
