@@ -16,18 +16,6 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "k.kakaocdn.net" },
       { protocol: "https", hostname: "*.kakaocdn.net" }, // 모든 카카오 CDN 서브도메인 허용
     ],
-    // 호환성을 위한 domains 옵션도 추가
-    domains: [
-      "k.kakaocdn.net",
-      "mcdonalds.co.kr",
-      "mob-prd.burgerking.co.kr",
-      "www.lotteeatz.com",
-      "img.lotteeatz.com",
-      "momstouch.co.kr",
-      "www.shinsegaefood.com",
-      "frankburger.co.kr",
-      "kfcapi.inicis.com",
-    ],
   },
 };
 
