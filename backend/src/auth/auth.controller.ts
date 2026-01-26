@@ -65,10 +65,11 @@ export class AuthController {
       // Refresh Token만 HttpOnly Cookie에 저장
       // 크로스 도메인 쿠키 전송을 위해 sameSite: 'none' 사용 (HTTPS 필수)
       const isProduction = this.configService.get('NODE_ENV') === 'production';
+      const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
       
       // iOS Safari 호환성을 위한 쿠키 설정
-      // domain을 명시하지 않으면 현재 도메인에만 설정되어 서브도메인 문제 방지
       // iOS Safari는 SameSite=None일 때 Secure가 필수이므로 항상 secure: true 설정
+      // domain을 명시하지 않으면 현재 도메인에만 설정되어 서브도메인 문제 방지
       const cookieOptions: any = {
         httpOnly: true,
         secure: isProduction, // HTTPS에서만 작동 (iOS Safari 필수)
@@ -78,18 +79,22 @@ export class AuthController {
         // domain을 명시하지 않음 (iOS Safari 호환성)
       };
       
-      res.cookie('refreshToken', refreshToken, cookieOptions);
-
-      // iOS Safari를 위한 추가 헤더 설정
+      // iOS Safari를 위한 추가 헤더 설정 (리다이렉트 전에 설정)
       if (isProduction) {
         // CORS 헤더 명시적 설정
         res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Origin', this.configService.get('FRONTEND_URL') || 'http://localhost:3000');
+        res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
       }
+      
+      // 쿠키 설정
+      res.cookie('refreshToken', refreshToken, cookieOptions);
 
       console.log('카카오 로그인 성공 - 쿠키 설정 완료:', {
         hasRefreshToken: !!refreshToken,
         isProduction,
+        frontendUrl,
         cookieOptions: {
           httpOnly: cookieOptions.httpOnly,
           secure: cookieOptions.secure,
@@ -98,10 +103,11 @@ export class AuthController {
         },
       });
 
+      // iOS Safari에서 쿠키가 제대로 설정되도록 리다이렉트 전에 약간의 지연
+      // 또는 프론트엔드에서 쿠키 설정을 확인할 수 있도록 추가 파라미터 전달
       // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
       // 프론트엔드에서 /auth/refresh를 호출하여 받아야 함
-      const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/auth/callback?success=true`);
+      return res.redirect(`${frontendUrl}/auth/callback?success=true&t=${Date.now()}`);
     } catch (error: any) {
       console.error('카카오 콜백 에러:', error);
       const errorMessage = error.message || '로그인 실패';
