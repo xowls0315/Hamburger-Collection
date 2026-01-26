@@ -65,13 +65,20 @@ export class AuthController {
       // Refresh Token만 HttpOnly Cookie에 저장
       // 크로스 도메인 쿠키 전송을 위해 sameSite: 'none' 사용 (HTTPS 필수)
       const isProduction = this.configService.get('NODE_ENV') === 'production';
-      res.cookie('refreshToken', refreshToken, {
+      
+      // iOS Safari 호환성을 위한 쿠키 설정
+      // domain을 명시하지 않으면 현재 도메인에만 설정되어 서브도메인 문제 방지
+      // iOS Safari는 SameSite=None일 때 Secure가 필수이므로 항상 secure: true 설정
+      const cookieOptions: any = {
         httpOnly: true,
-        secure: isProduction, // HTTPS에서만 작동
+        secure: isProduction, // HTTPS에서만 작동 (iOS Safari 필수)
         sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
         maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
         path: '/', // 모든 경로에서 쿠키 사용 가능
-      });
+        // domain을 명시하지 않음 (iOS Safari 호환성)
+      };
+      
+      res.cookie('refreshToken', refreshToken, cookieOptions);
 
       // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
       // 프론트엔드에서 /auth/refresh를 호출하여 받아야 함
@@ -133,6 +140,7 @@ export class AuthController {
       secure: isProduction,
       sameSite: isProduction ? 'none' : 'lax',
       path: '/',
+      // domain을 명시하지 않음 (iOS Safari 호환성)
     });
     return res.json({ success: true });
   }

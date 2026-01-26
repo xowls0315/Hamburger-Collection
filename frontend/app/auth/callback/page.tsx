@@ -23,20 +23,39 @@ function AuthCallbackContent() {
       }
 
       if (success === "true") {
-        try {
-          // RefreshToken 쿠키를 사용하여 AccessToken 받기 (Authorization 헤더 방식)
-          const result = await refreshToken();
-          setAccessToken(result.accessToken);
-          
-          // 사용자 정보 새로고침
-          await refreshUser();
-          
-          router.push("/");
-        } catch (error) {
-          console.error("토큰 갱신 실패:", error);
-          alert("로그인 처리 중 오류가 발생했습니다.");
-          router.push("/");
-        }
+        // iOS Safari에서 쿠키 설정 후 즉시 읽을 수 없는 경우를 대비한 재시도 로직
+        const attemptRefresh = async (retries = 3, delay = 500): Promise<void> => {
+          for (let i = 0; i < retries; i++) {
+            try {
+              // iOS Safari에서 쿠키가 설정되기까지 약간의 지연 필요
+              if (i > 0) {
+                await new Promise(resolve => setTimeout(resolve, delay * i));
+              }
+              
+              // RefreshToken 쿠키를 사용하여 AccessToken 받기 (Authorization 헤더 방식)
+              const result = await refreshToken();
+              setAccessToken(result.accessToken);
+              
+              // 사용자 정보 새로고침
+              await refreshUser();
+              
+              router.push("/");
+              return; // 성공 시 함수 종료
+            } catch (error) {
+              console.error(`토큰 갱신 시도 ${i + 1}/${retries} 실패:`, error);
+              
+              // 마지막 시도에서도 실패하면 에러 표시
+              if (i === retries - 1) {
+                console.error("토큰 갱신 최종 실패:", error);
+                alert("로그인 처리 중 오류가 발생했습니다.");
+                router.push("/");
+                return;
+              }
+            }
+          }
+        };
+
+        attemptRefresh();
       } else {
         router.push("/");
       }
