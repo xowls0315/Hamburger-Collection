@@ -24,30 +24,39 @@ function AuthCallbackContent() {
 
       if (success === "true") {
         // iOS Safari에서 쿠키 설정 후 즉시 읽을 수 없는 경우를 대비한 재시도 로직
-        const attemptRefresh = async (retries = 3, delay = 500): Promise<void> => {
+        const attemptRefresh = async (retries = 5, initialDelay = 1000): Promise<void> => {
           for (let i = 0; i < retries; i++) {
             try {
-              // iOS Safari에서 쿠키가 설정되기까지 약간의 지연 필요
-              if (i > 0) {
-                await new Promise(resolve => setTimeout(resolve, delay * i));
-              }
+              // iOS Safari에서 쿠키가 설정되기까지 충분한 지연 필요
+              // 첫 번째 시도에도 지연 추가 (리다이렉트 후 쿠키 설정 대기)
+              const delay = initialDelay * (i + 1); // 1초, 2초, 3초, 4초, 5초
+              await new Promise(resolve => setTimeout(resolve, delay));
+              
+              console.log(`토큰 갱신 시도 ${i + 1}/${retries} (${delay}ms 지연 후)`);
               
               // RefreshToken 쿠키를 사용하여 AccessToken 받기 (Authorization 헤더 방식)
               const result = await refreshToken();
-              setAccessToken(result.accessToken);
               
-              // 사용자 정보 새로고침
-              await refreshUser();
-              
-              router.push("/");
-              return; // 성공 시 함수 종료
-            } catch (error) {
-              console.error(`토큰 갱신 시도 ${i + 1}/${retries} 실패:`, error);
+              if (result && result.accessToken) {
+                console.log("토큰 갱신 성공");
+                setAccessToken(result.accessToken);
+                
+                // 사용자 정보 새로고침
+                await refreshUser();
+                
+                router.push("/");
+                return; // 성공 시 함수 종료
+              } else {
+                throw new Error("AccessToken이 응답에 없습니다");
+              }
+            } catch (error: any) {
+              const errorMessage = error?.message || error?.toString() || "알 수 없는 오류";
+              console.error(`토큰 갱신 시도 ${i + 1}/${retries} 실패:`, errorMessage, error);
               
               // 마지막 시도에서도 실패하면 에러 표시
               if (i === retries - 1) {
                 console.error("토큰 갱신 최종 실패:", error);
-                alert("로그인 처리 중 오류가 발생했습니다.");
+                alert(`로그인 처리 중 오류가 발생했습니다.\n\n오류: ${errorMessage}\n\n쿠키 설정 문제일 수 있습니다. 브라우저 설정을 확인해주세요.`);
                 router.push("/");
                 return;
               }

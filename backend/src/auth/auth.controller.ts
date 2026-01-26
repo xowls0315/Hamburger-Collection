@@ -80,6 +80,24 @@ export class AuthController {
       
       res.cookie('refreshToken', refreshToken, cookieOptions);
 
+      // iOS Safari를 위한 추가 헤더 설정
+      if (isProduction) {
+        // CORS 헤더 명시적 설정
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Origin', this.configService.get('FRONTEND_URL') || 'http://localhost:3000');
+      }
+
+      console.log('카카오 로그인 성공 - 쿠키 설정 완료:', {
+        hasRefreshToken: !!refreshToken,
+        isProduction,
+        cookieOptions: {
+          httpOnly: cookieOptions.httpOnly,
+          secure: cookieOptions.secure,
+          sameSite: cookieOptions.sameSite,
+          path: cookieOptions.path,
+        },
+      });
+
       // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
       // 프론트엔드에서 /auth/refresh를 호출하여 받아야 함
       const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
@@ -115,15 +133,39 @@ export class AuthController {
   @ApiResponse({ status: 200, description: '토큰 갱신 성공', schema: { properties: { accessToken: { type: 'string' } } } })
   @ApiResponse({ status: 401, description: 'Refresh token 없음 또는 유효하지 않음' })
   async refresh(@Req() req: Request, @Res() res: Response) {
-    const refreshToken = req.cookies?.refreshToken;
+    // 쿠키 확인 (디버깅용)
+    const allCookies = req.cookies || {};
+    const refreshToken = allCookies.refreshToken;
+    
+    console.log('Refresh 요청 - 쿠키 확인:', {
+      hasRefreshToken: !!refreshToken,
+      allCookies: Object.keys(allCookies),
+      userAgent: req.headers['user-agent'],
+    });
+
     if (!refreshToken) {
-      return res.status(401).json({ message: 'Refresh token not found' });
+      console.error('Refresh token not found in cookies');
+      return res.status(401).json({ 
+        message: 'Refresh token not found',
+        debug: {
+          cookiesReceived: Object.keys(allCookies),
+          userAgent: req.headers['user-agent'],
+        }
+      });
     }
 
-    const { accessToken } = await this.authService.refreshToken(refreshToken);
-
-    // Access Token을 응답 body로 반환 (메모리 저장용)
-    return res.json({ accessToken });
+    try {
+      const { accessToken } = await this.authService.refreshToken(refreshToken);
+      console.log('토큰 갱신 성공');
+      // Access Token을 응답 body로 반환 (메모리 저장용)
+      return res.json({ accessToken });
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Token refresh failed';
+      console.error('토큰 갱신 실패:', errorMessage);
+      return res.status(401).json({ 
+        message: errorMessage,
+      });
+    }
   }
 
   @Post('logout')
