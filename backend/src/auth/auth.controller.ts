@@ -68,8 +68,8 @@ export class AuthController {
       const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
       
       // iOS Safari 호환성을 위한 쿠키 설정
-      // iOS Safari는 SameSite=None일 때 Secure가 필수이므로 항상 secure: true 설정
       // domain을 명시하지 않으면 현재 도메인에만 설정되어 서브도메인 문제 방지
+      // iOS Safari는 SameSite=None일 때 Secure가 필수이므로 항상 secure: true 설정
       const cookieOptions: any = {
         httpOnly: true,
         secure: isProduction, // HTTPS에서만 작동 (iOS Safari 필수)
@@ -79,17 +79,14 @@ export class AuthController {
         // domain을 명시하지 않음 (iOS Safari 호환성)
       };
       
-      // iOS Safari를 위한 추가 헤더 설정 (리다이렉트 전에 설정)
-      if (isProduction) {
-        // CORS 헤더 명시적 설정
-        res.setHeader('Access-Control-Allow-Credentials', 'true');
-        res.setHeader('Access-Control-Allow-Origin', frontendUrl);
-        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS');
-        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
-      }
-      
       // 쿠키 설정
       res.cookie('refreshToken', refreshToken, cookieOptions);
+
+      // iOS Safari를 위한 추가 헤더 설정 (리다이렉트 전에 설정)
+      if (isProduction) {
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Origin', frontendUrl);
+      }
 
       console.log('카카오 로그인 성공 - 쿠키 설정 완료:', {
         hasRefreshToken: !!refreshToken,
@@ -103,10 +100,9 @@ export class AuthController {
         },
       });
 
-      // iOS Safari에서 쿠키가 제대로 설정되도록 리다이렉트 전에 약간의 지연
-      // 또는 프론트엔드에서 쿠키 설정을 확인할 수 있도록 추가 파라미터 전달
       // Access Token은 쿼리 파라미터로 전달하지 않음 (보안)
       // 프론트엔드에서 /auth/refresh를 호출하여 받아야 함
+      // 타임스탬프 추가로 캐시 방지 및 iOS Safari 호환성 개선
       return res.redirect(`${frontendUrl}/auth/callback?success=true&t=${Date.now()}`);
     } catch (error: any) {
       console.error('카카오 콜백 에러:', error);
@@ -143,20 +139,25 @@ export class AuthController {
     const allCookies = req.cookies || {};
     const refreshToken = allCookies.refreshToken;
     
+    // iOS Safari 디버깅을 위한 로그
+    const userAgent = req.headers['user-agent'] || '';
+    const isIOSSafari = /iPad|iPhone|iPod/.test(userAgent);
+    
     console.log('Refresh 요청 - 쿠키 확인:', {
       hasRefreshToken: !!refreshToken,
       allCookies: Object.keys(allCookies),
-      userAgent: req.headers['user-agent'],
+      isIOSSafari,
+      userAgent: userAgent.substring(0, 100), // 처음 100자만
     });
 
     if (!refreshToken) {
       console.error('Refresh token not found in cookies');
       return res.status(401).json({ 
         message: 'Refresh token not found',
-        debug: {
+        debug: isIOSSafari ? {
           cookiesReceived: Object.keys(allCookies),
-          userAgent: req.headers['user-agent'],
-        }
+          isIOSSafari: true,
+        } : undefined,
       });
     }
 

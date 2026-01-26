@@ -23,21 +23,23 @@ function AuthCallbackContent() {
       }
 
       if (success === "true") {
+        // iOS Safari 감지
+        const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as { MSStream?: unknown }).MSStream;
+        
         // iOS Safari에서 쿠키 설정 후 즉시 읽을 수 없는 경우를 대비한 재시도 로직
-        const attemptRefresh = async (retries = 8, initialDelay = 1500): Promise<void> => {
-          // iOS Safari 감지
-          const isIOSSafari = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+        const attemptRefresh = async (): Promise<void> => {
+          // iOS Safari는 더 긴 지연 시간과 더 많은 재시도 필요
+          const retries = isIOSSafari ? 10 : 5;
+          const baseDelay = isIOSSafari ? 2000 : 1000; // iOS: 2초, 일반: 1초
           
           for (let i = 0; i < retries; i++) {
             try {
-              // iOS Safari에서 쿠키가 설정되기까지 충분한 지연 필요
               // 첫 번째 시도에도 지연 추가 (리다이렉트 후 쿠키 설정 대기)
-              // iOS Safari는 더 긴 지연 시간 필요
-              const baseDelay = isIOSSafari ? initialDelay * 1.5 : initialDelay;
-              const delay = baseDelay * (i + 1); // iOS: 2.25초, 4.5초, 6.75초... / 일반: 1.5초, 3초, 4.5초...
+              // iOS Safari는 리다이렉트 후 쿠키가 설정되기까지 더 긴 시간 필요
+              const delay = baseDelay * (i + 1); // iOS: 2초, 4초, 6초... / 일반: 1초, 2초, 3초...
               await new Promise(resolve => setTimeout(resolve, delay));
               
-              console.log(`토큰 갱신 시도 ${i + 1}/${retries} (${Math.round(delay)}ms 지연 후)`, {
+              console.log(`토큰 갱신 시도 ${i + 1}/${retries} (${delay}ms 지연 후)`, {
                 isIOSSafari,
                 userAgent: navigator.userAgent,
               });
@@ -57,13 +59,10 @@ function AuthCallbackContent() {
               } else {
                 throw new Error("AccessToken이 응답에 없습니다");
               }
-            } catch (error: any) {
-              const errorMessage = error?.message || error?.toString() || "알 수 없는 오류";
-              const errorResponse = error?.response || error?.debug;
-              
+            } catch (error: unknown) {
+              const errorMessage = error instanceof Error ? error.message : String(error) || "알 수 없는 오류";
               console.error(`토큰 갱신 시도 ${i + 1}/${retries} 실패:`, {
                 errorMessage,
-                errorResponse,
                 error,
                 isIOSSafari,
               });
@@ -73,7 +72,7 @@ function AuthCallbackContent() {
                 console.error("토큰 갱신 최종 실패:", error);
                 const finalMessage = isIOSSafari
                   ? `로그인 처리 중 오류가 발생했습니다.\n\n오류: ${errorMessage}\n\niOS Safari에서 쿠키 설정 문제일 수 있습니다.\n\n해결 방법:\n1. Safari 설정 > 개인정보 보호 > 쿠키 차단 해제\n2. Safari 설정 > 개인정보 보호 > 크로스 사이트 추적 방지 해제\n3. 페이지를 새로고침해보세요.`
-                  : `로그인 처리 중 오류가 발생했습니다.\n\n오류: ${errorMessage}\n\n쿠키 설정 문제일 수 있습니다. 브라우저 설정을 확인해주세요.`;
+                  : `로그인 처리 중 오류가 발생했습니다.\n\n오류: ${errorMessage}`;
                 alert(finalMessage);
                 router.push("/");
                 return;
