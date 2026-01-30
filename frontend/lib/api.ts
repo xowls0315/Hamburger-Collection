@@ -315,7 +315,7 @@ export async function getPosts(
   limit: number = 20
 ): Promise<PostListResponse> {
   const data = await fetchApi<PostListResponse>(`/posts?page=${page}&limit=${limit}`);
-  // 백엔드의 user를 author로 변환
+  // 백엔드의 user를 author로 변환 (_count 속성은 보존)
   if (data.posts) {
     data.posts = data.posts.map((post) => ({
       ...post,
@@ -326,6 +326,8 @@ export async function getPosts(
             profileImage: post.user.profileImage,
           }
         : post.author,
+      // _count 속성 명시적으로 보존
+      _count: post._count || { comments: 0 },
     }));
   }
   return data;

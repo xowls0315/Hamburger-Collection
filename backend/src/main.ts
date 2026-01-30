@@ -10,13 +10,14 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   const configService = app.get(ConfigService);
 
-  // CORS 설정
+  // CORS 설정 (iOS Safari 호환성 포함)
   const frontendUrl = configService.get('FRONTEND_URL') || 'http://localhost:3000';
   app.enableCors({
     origin: frontendUrl,
-    credentials: true,
+    credentials: true, // 쿠키 전송 허용
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+    exposedHeaders: ['Set-Cookie'], // iOS Safari를 위해 Set-Cookie 헤더 노출
   });
 
   // Cookie Parser

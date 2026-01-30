@@ -21,15 +21,47 @@ export class PostsService {
     const limit = options?.limit || 20;
     const skip = (page - 1) * limit;
 
-    const [posts, total] = await this.postsRepository.findAndCount({
-      relations: ['user'],
-      order: { createdAt: 'DESC' },
-      skip,
-      take: limit,
-    });
+    // QueryBuilder를 사용하여 댓글 개수 포함
+    const queryBuilder = this.postsRepository
+      .createQueryBuilder('post')
+      .leftJoinAndSelect('post.user', 'user')
+      .loadRelationCountAndMap('post._count.comments', 'post.comments')
+      .orderBy('post.createdAt', 'DESC')
+      .skip(skip)
+      .take(limit);
+
+    const [posts, total] = await queryBuilder.getManyAndCount();
+
+    // loadRelationCountAndMap이 제대로 작동하지 않을 수 있으므로 직접 댓글 개수 조회
+    // 한 번의 쿼리로 모든 게시글의 댓글 개수를 가져옴 (성능 최적화)
+    const postIds = posts.map((post) => post.id);
+    const commentCountsMap: Record<string, number> = {};
+
+    if (postIds.length > 0) {
+      const commentCounts = await this.postsRepository.manager
+        .createQueryBuilder()
+        .select('post_id', 'postId')
+        .addSelect('COUNT(*)', 'count')
+        .from('comments', 'comment')
+        .where('comment.post_id IN (:...postIds)', { postIds })
+        .groupBy('comment.post_id')
+        .getRawMany() as Array<{ postId: string; count: string }>;
+
+      commentCounts.forEach((item) => {
+        commentCountsMap[item.postId] = parseInt(item.count, 10);
+      });
+    }
+
+    // 각 게시글에 댓글 개수 추가
+    const postsWithCount = posts.map((post) => ({
+      ...post,
+      _count: {
+        comments: commentCountsMap[post.id] || 0,
+      },
+    }));
 
     return {
-      posts,
+      posts: postsWithCount,
       total,
       page,
       limit,
