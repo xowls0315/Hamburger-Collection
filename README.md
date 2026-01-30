@@ -4,7 +4,7 @@
 
 - 🌐 **프론트엔드 URL (Vercel)**: https://hamburger-collection.vercel.app
 - 🌐 **백엔드 URL (Render)**: https://hamburger-collection-backend.onrender.com
-- 📚 **API 문서**: https://hamburger-collection-backend.onrender.com/api
+- 📚 **API 문서 (Swagger)**: https://hamburger-collection-backend.onrender.com/api-docs
 
 ---
 
@@ -141,7 +141,7 @@
 
 ```bash
 git clone <repository-url>
-cd hamburger-collection
+cd Hamburger-Collection
 ```
 
 ### 2. 백엔드 설정
@@ -153,44 +153,47 @@ npm install
 
 #### 환경 변수 설정 (`backend/.env`)
 
+코드에서 사용하는 변수명에 맞춰 설정하세요. `backend/.env.example`을 복사한 뒤 값을 채우면 됩니다.
+
 ```env
 # 개발 환경
 NODE_ENV=development
 PORT=3001
 
-# 데이터베이스
+# 데이터베이스 (로컬 PostgreSQL)
 DB_HOST=localhost
 DB_PORT=5432
-DB_USERNAME=your-username
+DB_USERNAME=postgres
 DB_PASSWORD=your-password
 DB_DATABASE=hamburger_collection
+DB_SCHEMA=public
 DB_SSL=false
 
-# 프론트엔드와 백엔드 서버
-BACKEND_URL=http://localhost:3001
+# Render PostgreSQL 사용 시: DB_HOST 등은 Render 대시보드에서 확인, DB_SSL=true 로 설정
+
+# 프론트엔드 URL (CORS·로그인 콜백 리다이렉트용)
 FRONTEND_URL=http://localhost:3000
 
-# JWT
-JWT_SECRET=your-jwt-secret-key
+# JWT (코드에서 JWT_ACCESS_SECRET / JWT_REFRESH_SECRET 사용, 각 32자 이상 권장)
+JWT_ACCESS_SECRET=your-jwt-access-secret-min-32-chars
 JWT_ACCESS_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=14d
+JWT_REFRESH_SECRET=your-jwt-refresh-secret-min-32-chars
+JWT_REFRESH_EXPIRES_IN=7d
 
-# 카카오 API
-KAKAO_REST_KEY=your-kakao-rest-api-key
-KAKAO_CLIENT_ID=your-kakao-client-id
+# 카카오 OAuth (로그인)
+KAKAO_REST_API_KEY=your-kakao-rest-api-key
+KAKAO_REDIRECT_URI=http://localhost:3001/auth/kakao/callback
 KAKAO_CLIENT_SECRET=your-kakao-client-secret
-KAKAO_REDIRECT_URI=http://localhost:3000/auth/callback
 
-# 쿠키 (프로덕션에서는 변경 필요)
-COOKIE_SECURE=false
-COOKIE_SAMESITE=lax
-COOKIE_DOMAIN=localhost
+# 카카오 로컬 API (매장 검색)
+KAKAO_LOCAL_API_KEY=your-kakao-local-api-key
 ```
 
 #### 데이터베이스 설정
 
 1. PostgreSQL 데이터베이스 생성
 2. `database/final.sql` 파일을 DBeaver 또는 psql로 실행
+3. 로컬 DB는 스키마 `public` 사용 시 `DB_SCHEMA=public` 또는 생략. Render 등에서 별도 스키마 사용 시 `DB_SCHEMA`에 해당 스키마명 지정
 
 ```bash
 # DBeaver 사용 시
@@ -216,11 +219,13 @@ npm install
 
 #### 환경 변수 설정 (`frontend/.env.local`)
 
-```env
-# 백엔드 URL
-NEXT_PUBLIC_BACKEND_URL=http://localhost:3001
+프론트엔드 코드는 `NEXT_PUBLIC_API_URL`(백엔드 API 주소), `NEXT_PUBLIC_KAKAO_MAP_KEY`(카카오맵 JavaScript 키)를 사용합니다.
 
-# 카카오맵 API 키
+```env
+# 백엔드 API URL (로컬: 3001, 배포 시 Render 백엔드 URL)
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# 카카오맵 JavaScript 키 (카카오 개발자 콘솔 → 앱 키 → JavaScript 키)
 NEXT_PUBLIC_KAKAO_MAP_KEY=your-kakao-map-javascript-key
 ```
 
@@ -237,13 +242,15 @@ npm run dev
 1. [카카오 개발자 콘솔](https://developers.kakao.com/) 접속
 2. 애플리케이션 생성
 3. **플랫폼 설정**
-   - Web 플랫폼 추가: `http://localhost:3000`
+   - Web 플랫폼 추가: `http://localhost:3000` (로컬), 배포 시 Vercel 도메인 추가
 4. **카카오 로그인 설정**
-   - Redirect URI: `http://localhost:3000/auth/callback`
-5. **API 키 발급**
-   - REST API 키 (백엔드용)
-   - JavaScript 키 (프론트엔드 카카오맵용)
-   - Client ID, Client Secret (OAuth용)
+   - Redirect URI: **백엔드** 콜백 URL 등록
+     - 로컬: `http://localhost:3001/auth/kakao/callback`
+     - 배포: `https://hamburger-collection-backend.onrender.com/auth/kakao/callback`
+5. **API 키**
+   - REST API 키 → `KAKAO_REST_API_KEY`, 매장 검색용 → `KAKAO_LOCAL_API_KEY`
+   - JavaScript 키 → 프론트 `NEXT_PUBLIC_KAKAO_MAP_KEY` (카카오맵)
+   - Client Secret → `KAKAO_CLIENT_SECRET` (선택)
 
 ---
 
@@ -393,6 +400,7 @@ ingest_logs (수집 로그)
 ```
 
 **관계**:
+
 - `brands` : `menu_items` = 1 : N
 - `menu_items` : `nutrition` = 1 : 1
 - `users` : `posts` = 1 : N
@@ -407,6 +415,7 @@ ingest_logs (수집 로그)
 **문제**: Vercel(프론트엔드)에서 Render(백엔드)로 카카오 로그인 시 `POST /auth/refresh 401 (Unauthorized)` 에러 발생  
 **원인**: `SameSite=Lax` 쿠키 정책으로 인해 크로스 도메인 POST 요청에서 쿠키가 전송되지 않음  
 **해결**:
+
 - 프로덕션 환경에서 `refreshToken` 쿠키 설정을 `sameSite: 'none'`, `secure: true`로 변경
 - CORS 설정에 `credentials: true` 및 필요한 HTTP 메서드/헤더 명시
 - `AuthContext`의 `initAuth` 로직을 개선하여 토큰 갱신을 우선 시도
@@ -417,6 +426,7 @@ ingest_logs (수집 로그)
 
 **문제**: 카카오 API가 때때로 `http://` 프로토콜로 프로필 이미지 URL을 반환하여 Next.js Image 컴포넌트에서 에러 발생  
 **해결**:
+
 - `next.config.ts`에 `http://` 프로토콜 지원 추가 (`k.kakaocdn.net`)
 - 백엔드에서 사용자 생성/업데이트 시 `http://` URL을 `https://`로 자동 변환
 
@@ -427,6 +437,7 @@ ingest_logs (수집 로그)
 **문제**: 배포 환경에서 맘스터치 메뉴 이미지가 502 에러로 표시되지 않음  
 **원인**: `momstouch.co.kr` 서버가 Vercel의 Next.js Image Optimization 요청을 차단하거나 응답하지 않음  
 **해결**:
+
 - 맘스터치 이미지에 대해서만 일반 `img` 태그 사용 (Next.js Image Optimization 우회)
 - 다른 브랜드 이미지는 계속 Next.js `Image` 컴포넌트 사용
 
@@ -436,6 +447,7 @@ ingest_logs (수집 로그)
 
 **문제**: Next.js 빌드 시 `useSearchParams() should be wrapped in a suspense boundary` 에러  
 **해결**:
+
 - `useSearchParams`를 사용하는 페이지를 `<Suspense>`로 감싸기
 - 콜백 페이지에 `export const dynamic = "force-dynamic"` 설정
 
@@ -446,6 +458,7 @@ ingest_logs (수집 로그)
 **문제**: DB의 `created_at`, `updated_at` 필드가 한국 시간(KST)보다 9시간 느리게 표시됨  
 **원인**: PostgreSQL이 UTC로 저장하고, 프론트엔드에서 변환하지 않음  
 **해결**:
+
 - 백엔드/DB는 UTC 유지
 - 프론트엔드에서 UTC 시간을 KST로 변환하는 유틸리티 함수 구현 (`utils/formatDate.ts`)
 - 모든 날짜 표시에 변환 함수 적용
@@ -456,6 +469,7 @@ ingest_logs (수집 로그)
 
 **문제**: Access Token 만료 시 사용자가 재로그인해야 함  
 **해결**:
+
 - 401 에러 발생 시 Refresh Token으로 자동 갱신
 - `AuthContext`에서 토큰 갱신 로직 구현
 - 원래 요청 자동 재시도
@@ -466,6 +480,7 @@ ingest_logs (수집 로그)
 
 **문제**: `sh: 1: nest: not found` 에러 발생  
 **해결**:
+
 - `package.json` 스크립트를 `npx nest build`, `npx nest start`로 변경
 - `@nestjs/cli`를 `devDependencies`에서 `dependencies`로 이동
 
@@ -475,11 +490,26 @@ ingest_logs (수집 로그)
 
 **문제**: Vercel 빌드 시 여러 TypeScript 타입 에러 발생  
 **해결**:
+
 - `post.author` 옵셔널 체이닝 추가
 - 중복된 `className` 속성 병합
 - `HeadersInit` 타입을 `Record<string, string>`로 명시적 캐스팅
 
 **참고**: `frontend/app/board/[id]/edit/page.tsx`, `frontend/lib/api.ts`
+
+#### 9. 로컬에서 fetch failed / uuid_generate_v4() does not exist
+
+**문제**: 프론트엔드에서 `fetch failed` 발생, 또는 백엔드 기동 시 `function uuid_generate_v4() does not exist` 로 DB 연결 실패  
+**원인**:
+
+- `fetch failed`: 백엔드가 3001에서 떠 있지 않음 (위 DB 에러로 기동 실패한 경우)
+- `uuid_generate_v4()`: `DB_SCHEMA`를 `public`이 아닌 값(예: `hamburger-collection`)으로 사용할 때, PostgreSQL의 `search_path`에 `public`이 없어 `uuid-ossp` 확장 함수를 찾지 못함  
+  **해결**:
+- 백엔드 `.env`에서 JWT 변수명 확인: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 사용 (코드에서 `JWT_SECRET` 미사용)
+- 비공개 스키마 사용 시: TypeORM 연결 옵션에 `search_path`에 `public` 포함 (`backend/src/app.module.ts`에서 `extra.options`로 처리됨)
+- Render PostgreSQL 사용 시: `DB_SSL=true` 설정
+
+**참고**: `backend/src/app.module.ts`, `backend/.env.example`, `ENV_SETUP.md`(있을 경우)
 
 ### 💭 프로젝트 후기
 
@@ -575,7 +605,6 @@ ingest_logs (수집 로그)
     </td>
   </tr>
 </table>
-
 
 ---
 
