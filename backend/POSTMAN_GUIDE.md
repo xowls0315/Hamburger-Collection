@@ -624,32 +624,33 @@ http://localhost:3001/brands
 
 ## 8. 관리자 API
 
-### 8.1 FatSecret 메뉴 수집 실행
+관리자 API는 **JWT Bearer 토큰**으로 인증합니다.  
+Postman에서 **Authorization** 탭 → Type: **Bearer Token** → Token에 `{{access_token}}` 또는 로그인 후 받은 accessToken 입력.
 
-**요청 설정:**
+### 8.1 브랜드별 메뉴 수집 (menu_items + nutrition 복구용)
+
+각 브랜드마다 **POST** 요청을 보내면 해당 브랜드 메뉴를 스크래핑해 DB에 저장합니다.
+
+**공통 설정:**
+- **Authorization:** Type `Bearer Token`, Token: `{{access_token}}`
+- **Body:** 없음 (비워두기)
+
+| 브랜드 | Method | URL |
+|--------|--------|-----|
+| 맥도날드 | POST | `{{base_url}}/admin/menu-items/mcdonalds/scrape` |
+| 버거킹 | POST | `{{base_url}}/admin/menu-items/burgerking/scrape` |
+| 롯데리아 | POST | `{{base_url}}/admin/menu-items/lotteria/scrape` |
+| 맘스터치 | POST | `{{base_url}}/admin/menu-items/momstouch/scrape` |
+| KFC | POST | `{{base_url}}/admin/menu-items/kfc/scrape` |
+| 노브랜드버거 | POST | `{{base_url}}/admin/menu-items/nobrand/scrape` |
+| 프랭크버거 | POST | `{{base_url}}/admin/menu-items/frank/scrape` |
+
+**예시 (맥도날드):**
 - **Method:** `POST`
-- **URL:** `{{base_url}}/admin/ingest/:brandSlug/run`
-- **예시:** `{{base_url}}/admin/ingest/mcdonalds/run`
-- **Headers:**
-  - `Cookie`: `accessToken={{access_token}}`
-- **인증 필요:** ✅
+- **URL:** `http://localhost:3001/admin/menu-items/mcdonalds/scrape`
+- **Authorization:** Bearer Token → `{{access_token}}`
 
-**Path Variables:**
-- `brandSlug`: 브랜드 slug (예: `mcdonalds`, `burgerking`)
-
-**응답 예시:**
-```json
-{
-  "success": true,
-  "brand": "맥도날드",
-  "totalProcessed": 50,
-  "saved": 45,
-  "errors": 5,
-  "errorDetails": [...]
-}
-```
-
-**참고:** 수집에는 시간이 걸릴 수 있습니다 (최대 50개 메뉴, 각 0.5초 대기).
+**참고:** 수집에는 브랜드마다 수십 초~수 분 걸릴 수 있습니다. 타임아웃이 나면 Postman 타임아웃을 늘리거나 한 브랜드씩 순서대로 실행하세요.
 
 ---
 

@@ -37,16 +37,17 @@ export default function GuidePage() {
             프로젝트 소개
           </h2>
           <p className="mb-3 sm:mb-4 leading-relaxed text-sm sm:text-base text-gray-700">
-            <strong>Hamburger-Collection</strong>은 국내 주요 햄버거 프랜차이즈 브랜드의
-            버거 단품 메뉴 정보와 영양 성분을 한눈에 비교하고 탐색할 수 있는 웹 애플리케이션입니다.
+            <strong>Hamburger-Collection</strong>은 국내 주요 햄버거 프랜차이즈
+            브랜드의 버거 단품 메뉴 정보<strong>(2026-01-20 기준)</strong>와
+            영양 성분을 한눈에 비교하고 탐색할 수 있는 웹 애플리케이션입니다.
             사용자들은 각 브랜드별 메뉴를 쉽게 검색하고, 영양 정보를 확인하며,
             주변 매장을 찾아볼 수 있습니다.
           </p>
           <p className="leading-relaxed text-sm sm:text-base text-gray-700">
-            본 프로젝트는 오픈서베이에서 조사·발표한{' '}
-            <strong>&apos;버거 프랜차이즈 트렌드 리포트 2023&apos;</strong> 자료를
-            바탕으로, 사람들이 가장 많이 이용하는 햄버거 브랜드 상위 7개를 선정하여
-            구현되었습니다.
+            본 프로젝트는 오픈서베이에서 조사·발표한{" "}
+            <strong>&apos;버거 프랜차이즈 트렌드 리포트 2023&apos;</strong>{" "}
+            자료를 바탕으로, 사람들이 가장 많이 이용하는 햄버거 브랜드 상위
+            7개를 선정하여 구현되었습니다.
           </p>
         </section>
 
@@ -111,8 +112,8 @@ export default function GuidePage() {
                 브랜드별 메뉴 탐색
               </h3>
               <p className="mb-2 sm:mb-3 text-xs sm:text-sm text-gray-700">
-                각 브랜드별로 제공되는 다양한 메뉴를 확인하고, 상세한 영양 정보를
-                조회할 수 있습니다.
+                각 브랜드별로 제공되는 다양한 메뉴를 확인하고, 상세한 영양
+                정보를 조회할 수 있습니다.
               </p>
               <ul className="space-y-1 text-xs sm:text-sm text-gray-600">
                 <li>• 메뉴 이미지 및 설명 확인</li>
