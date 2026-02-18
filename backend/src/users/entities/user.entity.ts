@@ -15,16 +15,29 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ name: 'kakao_id', unique: true, length: 100 })
-  kakaoId: string;
+  /** 카카오 로그인 사용자만 설정. 일반 회원가입 사용자는 null */
+  @Column({ type: 'varchar', name: 'kakao_id', unique: true, nullable: true, length: 100 })
+  kakaoId: string | null;
 
-  @Column({ length: 100 })
+  /** 일반 로그인용 아이디 (회원가입 시 설정, unique) */
+  @Column({ type: 'varchar', name: 'login_id', unique: true, nullable: true, length: 50 })
+  loginId: string | null;
+
+  /** bcrypt 해시된 비밀번호 (일반 회원만) */
+  @Column({ type: 'varchar', name: 'password', nullable: true, length: 255 })
+  password: string | null;
+
+  /** ID/PW 찾기용 이메일 (일반 회원가입 시 입력) */
+  @Column({ type: 'varchar', nullable: true, length: 255 })
+  email: string | null;
+
+  @Column({ type: 'varchar', length: 100 })
   nickname: string;
 
-  @Column({ name: 'profile_image', nullable: true, length: 500 })
-  profileImage: string;
+  @Column({ type: 'varchar', name: 'profile_image', nullable: true, length: 500 })
+  profileImage: string | null;
 
-  @Column({ default: 'user', length: 20 })
+  @Column({ type: 'varchar', default: 'user', length: 20 })
   role: string; // 'user' | 'admin'
 
   @OneToMany(() => Post, (post) => post.user)

@@ -18,16 +18,21 @@ CREATE TABLE IF NOT EXISTS brands (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 4. 사용자 테이블
+-- 4. 사용자 테이블 (카카오 로그인 + 일반 회원가입 지원)
 CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    kakao_id VARCHAR(100) UNIQUE NOT NULL,
+    kakao_id VARCHAR(100) UNIQUE,
+    login_id VARCHAR(50) UNIQUE,
+    password VARCHAR(255),
+    email VARCHAR(255),
     nickname VARCHAR(100) NOT NULL,
     profile_image VARCHAR(500),
     role VARCHAR(20) DEFAULT 'user',
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+-- 카카오 로그인: kakao_id 설정, login_id/password/email NULL
+-- 일반 회원가입: login_id, password, email, nickname 설정, kakao_id NULL
 
 -- 5. 메뉴 아이템 테이블
 CREATE TABLE IF NOT EXISTS menu_items (
@@ -104,6 +109,7 @@ CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_comments_post_id ON comments(post_id);
 CREATE INDEX IF NOT EXISTS idx_comments_user_id ON comments(user_id);
 CREATE INDEX IF NOT EXISTS idx_users_kakao_id ON users(kakao_id);
+CREATE INDEX IF NOT EXISTS idx_users_login_id ON users(login_id);
 CREATE INDEX IF NOT EXISTS idx_brands_slug ON brands(slug);
 CREATE INDEX IF NOT EXISTS idx_favorites_user_id ON favorites(user_id);
 CREATE INDEX IF NOT EXISTS idx_favorites_menu_item_id ON favorites(menu_item_id);

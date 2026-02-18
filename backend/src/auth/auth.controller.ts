@@ -2,8 +2,10 @@ import {
   Controller,
   Get,
   Post,
+  Patch,
   Req,
   Res,
+  Body,
   Query,
   UseGuards,
   HttpCode,
@@ -15,11 +17,18 @@ import {
   ApiResponse,
   ApiQuery,
   ApiBearerAuth,
+  ApiBody,
 } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { LocalAuthGuard } from './guards/local-auth.guard';
 import { ConfigService } from '@nestjs/config';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { FindIdDto } from './dto/find-id.dto';
+import { FindPwDto } from './dto/find-pw.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -121,8 +130,9 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '사용자 정보 반환' })
   @ApiResponse({ status: 401, description: '인증 필요' })
-  async getMe(@Req() req: any) {
-    return req.user;
+  async getMe(@Req() req: { user: Record<string, unknown> }) {
+    const { password: _p, ...rest } = req.user;
+    return rest;
   }
 
   @Post('refresh')
@@ -192,5 +202,72 @@ export class AuthController {
       // domain을 명시하지 않음 (iOS Safari 호환성)
     });
     return res.json({ success: true });
+  }
+
+  @Post('register')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: '일반 회원가입', description: '아이디·비밀번호·이메일·닉네임으로 회원가입' })
+  @ApiBody({ type: RegisterDto })
+  @ApiResponse({ status: 201, description: '회원가입 성공' })
+  @ApiResponse({ status: 400, description: '유효성 검증 실패' })
+  @ApiResponse({ status: 409, description: '이미 사용 중인 아이디/이메일' })
+  async register(@Body() dto: RegisterDto) {
+    const user = await this.authService.register(dto);
+    return { success: true, message: '회원가입이 완료되었습니다.', user: { id: user.id, loginId: user.loginId, nickname: user.nickname } };
+  }
+
+  @Post('login')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(LocalAuthGuard)
+  @ApiOperation({ summary: '일반 로그인', description: '아이디·비밀번호 로그인. refreshToken은 쿠키, accessToken·user는 body로 반환' })
+  @ApiBody({ type: LoginDto })
+  @ApiResponse({ status: 200, description: '로그인 성공' })
+  @ApiResponse({ status: 401, description: '아이디/비밀번호 오류' })
+  async login(@Req() req: { user: { id: string; kakaoId: string | null; email: string | null; loginId: string | null } }, @Res() res: Response) {
+    const { user, accessToken, refreshToken } = await this.authService.localLogin(req.user);
+    const isProduction = this.configService.get('NODE_ENV') === 'production';
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: isProduction ? 'none' : 'lax',
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      path: '/',
+    });
+    const { password: _p, ...safeUser } = user;
+    return res.json({ accessToken, user: safeUser });
+  }
+
+  @Post('find-id')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'ID 찾기', description: '이메일로 가입된 로그인 아이디(마스킹) 반환' })
+  @ApiBody({ type: FindIdDto })
+  @ApiResponse({ status: 200, description: '아이디 조회 성공' })
+  @ApiResponse({ status: 400, description: '해당 이메일 계정 없음' })
+  async findId(@Body() dto: FindIdDto) {
+    return this.authService.findId(dto.email);
+  }
+
+  @Post('find-pw')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'PW 찾기', description: '아이디·이메일 일치 시 임시 비밀번호 발급(응답으로 반환)' })
+  @ApiBody({ type: FindPwDto })
+  @ApiResponse({ status: 200, description: '임시 비밀번호 발급' })
+  @ApiResponse({ status: 400, description: '일치하는 계정 없음' })
+  async findPw(@Body() dto: FindPwDto) {
+    return this.authService.findPw(dto.email, dto.loginId);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: '비밀번호 변경', description: '일반 계정만. 현재 비밀번호 확인 후 새 비밀번호로 변경' })
+  @ApiBody({ type: ChangePasswordDto })
+  @ApiResponse({ status: 200, description: '비밀번호 변경 성공' })
+  @ApiResponse({ status: 400, description: '일반 계정이 아님' })
+  @ApiResponse({ status: 401, description: '현재 비밀번호 불일치 또는 인증 필요' })
+  async changePassword(@Req() req: { user: { id: string } }, @Body() dto: ChangePasswordDto) {
+    await this.authService.changePassword(req.user.id, dto.currentPassword, dto.newPassword);
+    return { success: true, message: '비밀번호가 변경되었습니다.' };
   }
 }

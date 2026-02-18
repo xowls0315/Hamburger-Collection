@@ -1,6 +1,6 @@
 # 🍔 Hamburger-Collection (햄버거 모음 사이트)
 
-**햄버거 브랜드별 메뉴/영양정보를 한 곳에서 탐색하고, 내 주변 매장까지 확인하며, 카카오 로그인 기반 게시판/댓글 커뮤니티를 제공하는 웹 서비스**
+**햄버거 브랜드별 메뉴/영양정보를 한 곳에서 탐색하고, 내 주변 매장까지 확인하며, 카카오·일반 로그인 기반 게시판/댓글 커뮤니티를 제공하는 웹 서비스**
 
 - 🌐 **프론트엔드 URL (Vercel)**: https://hamburger-collection.vercel.app
 - 🌐 **백엔드 URL (Render)**: https://hamburger-collection-backend.onrender.com
@@ -31,7 +31,7 @@
 
 - ✨ **7개 주요 브랜드 지원**: 맥도날드, 버거킹, 롯데리아, 맘스터치, KFC, 노브랜드버거, 프랭크버거
 - 📱 **반응형 디자인**: 모바일, 태블릿, 데스크탑 모든 환경 지원
-- 🔐 **카카오 소셜 로그인**: 간편한 로그인으로 게시판 및 즐겨찾기 기능 이용
+- 🔐 **이중 로그인**: 카카오 소셜 로그인 + 일반 회원가입/로그인(아이디·비밀번호·이메일), ID/PW 찾기·비밀번호 변경 지원
 - 🗺️ **실시간 지도 표시**: 카카오맵 연동으로 매장 위치 시각적으로 확인
 - 📊 **상세 영양성분 제공**: 칼로리, 단백질, 나트륨, 당류 등 상세 정보
 - 🔄 **게스트/로그인 모드**: 로그인 없이도 메뉴 조회 가능, 로그인 시 추가 기능 이용
@@ -61,12 +61,11 @@
 - 매장 정보 제공 (이름, 주소, 거리, 전화번호, 카카오 플레이스 링크)
 - 지도/리스트 뷰 전환 기능
 
-### 4. 카카오 소셜 로그인
+### 4. 로그인 (카카오 + 일반 계정)
 
-- OAuth 2.0 기반 카카오 로그인
-- JWT 토큰 기반 인증 (AccessToken + RefreshToken)
-- 자동 토큰 갱신 기능
-- 프로필 정보 표시
+- **카카오 소셜 로그인**: OAuth 2.0 기반, JWT 토큰(AccessToken + RefreshToken), 자동 토큰 갱신
+- **일반 계정**: 회원가입(아이디·비밀번호·이메일·닉네임), 로그인, ID 찾기(이메일), PW 찾기(임시 비밀번호 발급), 마이페이지에서 비밀번호 변경
+- 마이페이지에서 카카오 계정 / 일반 계정 구분 표시
 
 ### 5. 게시판 및 댓글 기능
 
@@ -107,7 +106,7 @@
 - **Framework**: NestJS 11.0.1
 - **Language**: TypeScript 5.7.3
 - **Database**: PostgreSQL (TypeORM 0.3.20)
-- **Authentication**: Passport (JWT, Kakao OAuth)
+- **Authentication**: Passport (JWT, Kakao OAuth, Local Strategy)
 - **API Documentation**: Swagger (@nestjs/swagger 11.2.5)
 - **Validation**: class-validator, class-transformer
 - **Web Scraping**: Cheerio, Puppeteer, Tesseract.js
@@ -337,7 +336,10 @@ brands (브랜드)
 
 users (사용자)
 ├── id (PK, UUID)
-├── kakao_id (UNIQUE)
+├── kakao_id (UNIQUE, nullable — 카카오 로그인 시만)
+├── login_id (UNIQUE, nullable — 일반 회원가입 시)
+├── password (nullable — bcrypt 해시)
+├── email (nullable — ID/PW 찾기용)
 ├── nickname
 ├── profile_image
 ├── role

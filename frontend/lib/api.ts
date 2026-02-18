@@ -261,9 +261,11 @@ export async function searchStores(
 // ============ 인증 API ============
 export interface User {
   id: string;
-  kakaoId: string;
+  kakaoId?: string | null;
+  loginId?: string | null;
+  email?: string | null;
   nickname: string;
-  profileImage?: string;
+  profileImage?: string | null;
   role: string;
 }
 
@@ -281,6 +283,51 @@ export async function logout(): Promise<{ success: boolean }> {
 
 export function getKakaoLoginUrl(): string {
   return `${API_BASE_URL}/auth/kakao`;
+}
+
+export interface RegisterPayload {
+  loginId: string;
+  password: string;
+  email: string;
+  nickname: string;
+}
+
+export async function register(data: RegisterPayload): Promise<{ success: boolean; message: string; user: { id: string; loginId: string | null; nickname: string } }> {
+  return fetchApi("/auth/register", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function loginLocal(loginId: string, password: string): Promise<{ accessToken: string; user: User }> {
+  return fetchApi("/auth/login", {
+    method: "POST",
+    body: JSON.stringify({ loginId, password }),
+  });
+}
+
+export async function findId(email: string): Promise<{ loginId: string }> {
+  return fetchApi("/auth/find-id", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+export async function findPw(email: string, loginId: string): Promise<{ temporaryPassword: string }> {
+  return fetchApi("/auth/find-pw", {
+    method: "POST",
+    body: JSON.stringify({ email, loginId }),
+  });
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message: string }> {
+  return fetchApi("/auth/change-password", {
+    method: "PATCH",
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
 }
 
 // ============ 게시판 API ============

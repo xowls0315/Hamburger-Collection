@@ -1,12 +1,13 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback } from "react";
-import { User, getMe, logout as apiLogout, refreshToken as apiRefreshToken, getKakaoLoginUrl, setAccessTokenGetter, setAccessTokenSetter, setRefreshTokenCallback } from "../../lib/api";
+import { User, getMe, logout as apiLogout, refreshToken as apiRefreshToken, getKakaoLoginUrl, loginLocal, setAccessTokenGetter, setAccessTokenSetter, setRefreshTokenCallback } from "../../lib/api";
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: () => void;
+  loginWithCredentials: (loginId: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setAccessToken: (token: string | null) => void;
@@ -71,6 +72,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     window.location.href = getKakaoLoginUrl();
   };
 
+  const loginWithCredentials = async (loginId: string, password: string) => {
+    const result = await loginLocal(loginId, password);
+    setAccessToken(result.accessToken);
+    setUser(result.user);
+  };
+
   const logout = async () => {
     try {
       await apiLogout();
@@ -81,7 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout, refreshUser, setAccessToken }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithCredentials, logout, refreshUser, setAccessToken }}>
       {children}
     </AuthContext.Provider>
   );

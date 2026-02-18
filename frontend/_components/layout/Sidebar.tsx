@@ -51,14 +51,34 @@ export default function Sidebar() {
               </button>
             </div>
           ) : (
-            <div>
+            <div className="space-y-2">
               <div className="text-sm text-gray-600">로그인이 필요합니다</div>
               <button
                 onClick={login}
-                className="mt-2 w-full rounded-lg bg-yellow-400 px-4 py-2 text-sm font-medium text-black hover:bg-yellow-500 cursor-pointer"
+                className="w-full rounded-lg bg-yellow-400 px-4 py-2 text-sm font-medium text-black hover:bg-yellow-500 cursor-pointer"
               >
                 카카오로 로그인
               </button>
+              <Link
+                href="/auth/login"
+                className="block w-full rounded-lg border border-gray-300 bg-white px-4 py-2 text-center text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+              >
+                로그인
+              </Link>
+              <div className="flex gap-2">
+                <Link
+                  href="/auth/signup"
+                  className="flex-1 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-center text-xs font-medium text-orange-700 hover:bg-orange-100 transition-colors"
+                >
+                  회원가입
+                </Link>
+                <Link
+                  href="/auth/find-id"
+                  className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-center text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  ID/PW 찾기
+                </Link>
+              </div>
             </div>
           )}
         </div>
