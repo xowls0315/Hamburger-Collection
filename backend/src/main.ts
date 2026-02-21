@@ -11,7 +11,8 @@ async function bootstrap() {
   const configService = app.get(ConfigService);
 
   // CORS 설정 (iOS Safari 호환성 포함)
-  const frontendUrl = configService.get('FRONTEND_URL') || 'http://localhost:3000';
+  const frontendUrl =
+    configService.get('FRONTEND_URL') || 'http://localhost:3000';
   app.enableCors({
     origin: frontendUrl,
     credentials: true, // 쿠키 전송 허용
@@ -35,7 +36,8 @@ async function bootstrap() {
   // Swagger 설정
   const config = new DocumentBuilder()
     .setTitle('햄버거 모음 API')
-    .setDescription(`
+    .setDescription(
+      `
 ## 햄버거 브랜드별 메뉴/영양정보 탐색 및 커뮤니티 API
 
 ### 주요 기능
@@ -47,8 +49,12 @@ async function bootstrap() {
 ### 인증
 - 게시글/댓글 조회는 인증 없이 가능
 - 게시글/댓글 작성/수정/삭제는 JWT 인증 필요
-- 로그인: \`GET /auth/kakao\` → 카카오 로그인 페이지로 리다이렉트
-    `)
+- **카카오 로그인**: \`GET /auth/kakao\` → 카카오 OAuth 로그인 페이지로 리다이렉트
+- **일반 회원가입/로그인**: \`POST /auth/register\`, \`POST /auth/login\`
+- **ID/PW 찾기**: \`POST /auth/find-id\`, \`POST /auth/find-pw\`
+- **비밀번호 변경**: \`PATCH /auth/change-password\` (JWT 필요)
+    `,
+    )
     .setVersion('1.0')
     .addTag('health', '서버 상태 확인 API')
     .addTag('brands', '브랜드 관련 API')

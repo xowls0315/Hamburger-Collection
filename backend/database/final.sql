@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS menu_items (
     category VARCHAR(50) NOT NULL,
     image_url VARCHAR(500),
     detail_url VARCHAR(500),
+    description TEXT,
     is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -51,11 +52,10 @@ CREATE TABLE IF NOT EXISTS menu_items (
 CREATE TABLE IF NOT EXISTS nutrition (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     menu_item_id UUID UNIQUE NOT NULL REFERENCES menu_items(id) ON DELETE CASCADE,
-    kcal INTEGER,
-    carbohydrate DECIMAL(10, 2),
+    kcal DECIMAL(10, 2),
     protein DECIMAL(10, 2),
-    fat DECIMAL(10, 2),
-    sodium INTEGER,
+    "saturatedFat" DECIMAL(10, 2),
+    sodium DECIMAL(10, 2),
     sugar DECIMAL(10, 2)
 );
 
@@ -135,21 +135,21 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- 14. 트리거 생성
+-- 14. 트리거 생성 (EXECUTE PROCEDURE: PostgreSQL 10 이하 호환)
 CREATE TRIGGER update_brands_updated_at BEFORE UPDATE ON brands
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_menu_items_updated_at BEFORE UPDATE ON menu_items
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_posts_updated_at BEFORE UPDATE ON posts
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 CREATE TRIGGER update_comments_updated_at BEFORE UPDATE ON comments
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+    FOR EACH ROW EXECUTE PROCEDURE update_updated_at_column();
 
 -- 완료 메시지
 SELECT '데이터베이스 초기화가 완료되었습니다!' AS message;
