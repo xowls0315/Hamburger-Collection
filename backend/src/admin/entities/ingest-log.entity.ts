@@ -7,8 +7,9 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { Brand } from '../../brands/entities/brand.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('ingest_logs')
+@Entity({ name: 'ingest_logs', schema: DB_SCHEMA_NAME })
 export class IngestLog {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -10,8 +10,9 @@ import {
 } from 'typeorm';
 import { Brand } from '../../brands/entities/brand.entity';
 import { Nutrition } from '../../nutrition/entities/nutrition.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('menu_items')
+@Entity({ name: 'menu_items', schema: DB_SCHEMA_NAME })
 export class MenuItem {
   @PrimaryGeneratedColumn('uuid')
   id: string;

@@ -10,8 +10,9 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Comment } from '../../comments/entities/comment.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('posts')
+@Entity({ name: 'posts', schema: DB_SCHEMA_NAME })
 export class Post {
   @PrimaryGeneratedColumn('uuid')
   id: string;

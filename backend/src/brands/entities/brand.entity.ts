@@ -7,8 +7,9 @@ import {
   OneToMany,
 } from 'typeorm';
 import { MenuItem } from '../../menu-items/entities/menu-item.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('brands')
+@Entity({ name: 'brands', schema: DB_SCHEMA_NAME })
 export class Brand {
   @PrimaryGeneratedColumn('uuid')
   id: string;

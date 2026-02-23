@@ -9,8 +9,9 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { MenuItem } from '../../menu-items/entities/menu-item.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('favorites')
+@Entity({ name: 'favorites', schema: DB_SCHEMA_NAME })
 @Unique(['userId', 'menuItemId']) // 사용자당 메뉴 아이템은 하나만 즐겨찾기 가능
 export class Favorite {
   @PrimaryGeneratedColumn('uuid')

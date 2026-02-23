@@ -9,8 +9,9 @@ import {
 import { Post } from '../../posts/entities/post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
 import { Favorite } from '../../favorites/entities/favorite.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('users')
+@Entity({ name: 'users', schema: DB_SCHEMA_NAME })
 export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;

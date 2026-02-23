@@ -6,8 +6,9 @@ import {
   JoinColumn,
 } from 'typeorm';
 import { MenuItem } from '../../menu-items/entities/menu-item.entity';
+import { DB_SCHEMA_NAME } from '../../constants/database';
 
-@Entity('nutrition')
+@Entity({ name: 'nutrition', schema: DB_SCHEMA_NAME })
 export class Nutrition {
   @PrimaryGeneratedColumn('uuid')
   id: string;
