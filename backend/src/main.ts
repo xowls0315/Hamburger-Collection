@@ -53,6 +53,10 @@ async function bootstrap() {
 - **일반 회원가입/로그인**: \`POST /auth/register\`, \`POST /auth/login\`
 - **ID/PW 찾기**: \`POST /auth/find-id\`, \`POST /auth/find-pw\`
 - **비밀번호 변경**: \`PATCH /auth/change-password\` (JWT 필요)
+
+### 헬스 체크
+- \`GET /\`: 서버 상태 확인
+- \`GET /health\`: 서버 + DB 연결 확인 (UptimeRobot 5분 핑 권장, Supabase 7일 pause 방지)
     `,
     )
     .setVersion('1.0')

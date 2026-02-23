@@ -105,13 +105,13 @@
 
 - **Framework**: NestJS 11.0.1
 - **Language**: TypeScript 5.7.3
-- **Database**: PostgreSQL (TypeORM 0.3.20)
+- **Database**: PostgreSQL (TypeORM 0.3.20) — 로컬/Render PostgreSQL 또는 **Supabase** 사용 가능
 - **Authentication**: Passport (JWT, Kakao OAuth, Local Strategy)
 - **API Documentation**: Swagger (@nestjs/swagger 11.2.5)
 - **Validation**: class-validator, class-transformer
 - **Web Scraping**: Cheerio, Puppeteer, Tesseract.js
 - **HTTP Client**: Axios
-- **배포**: Render
+- **배포**: Render (Web Service) + Supabase(DB) + UptimeRobot(무료 sleep 방지) 조합 권장
 
 ### 외부 API
 
@@ -152,14 +152,15 @@ npm install
 
 #### 환경 변수 설정 (`backend/.env`)
 
-코드에서 사용하는 변수명에 맞춰 설정하세요. `backend/.env.example`을 복사한 뒤 값을 채우면 됩니다.
+코드에서 사용하는 변수명에 맞춰 설정하세요. `backend/.env.example`이 있으면 복사한 뒤 값을 채우면 됩니다.
 
 ```env
 # 개발 환경
 NODE_ENV=development
 PORT=3001
 
-# 데이터베이스 (로컬 PostgreSQL)
+# 데이터베이스
+# 로컬 PostgreSQL
 DB_HOST=localhost
 DB_PORT=5432
 DB_USERNAME=postgres
@@ -168,16 +169,21 @@ DB_DATABASE=hamburger_collection
 DB_SCHEMA=public
 DB_SSL=false
 
-# Render PostgreSQL 사용 시: DB_HOST 등은 Render 대시보드에서 확인, DB_SSL=true 로 설정
+# Supabase 사용 시: Project Settings → Database 에서 Host/Port/User/Password 확인
+# DB_HOST=db.xxxx.supabase.co 또는 pooler 주소, DB_PORT=5432, DB_SSL=true
+# 스키마를 hamburger-collection 으로 쓰는 경우 DB_SCHEMA=hamburger-collection
 
-# 프론트엔드 URL (CORS·로그인 콜백 리다이렉트용)
+# Render PostgreSQL 사용 시: DB_HOST 등은 Render 대시보드에서 확인, DB_SSL=true
+
+# 프론트엔드·백엔드 URL (CORS·로그인 콜백 리다이렉트용)
+BACKEND_URL=http://localhost:3001
 FRONTEND_URL=http://localhost:3000
 
-# JWT (코드에서 JWT_ACCESS_SECRET / JWT_REFRESH_SECRET 사용, 각 32자 이상 권장)
+# JWT (JWT_ACCESS_SECRET / JWT_REFRESH_SECRET 각 32자 이상 권장)
 JWT_ACCESS_SECRET=your-jwt-access-secret-min-32-chars
 JWT_ACCESS_EXPIRES_IN=15m
 JWT_REFRESH_SECRET=your-jwt-refresh-secret-min-32-chars
-JWT_REFRESH_EXPIRES_IN=7d
+JWT_REFRESH_EXPIRES_IN=14d
 
 # 카카오 OAuth (로그인)
 KAKAO_REST_API_KEY=your-kakao-rest-api-key
@@ -190,16 +196,13 @@ KAKAO_LOCAL_API_KEY=your-kakao-local-api-key
 
 #### 데이터베이스 설정
 
-1. PostgreSQL 데이터베이스 생성
-2. `database/final.sql` 파일을 DBeaver 또는 psql로 실행
-3. 로컬 DB는 스키마 `public` 사용 시 `DB_SCHEMA=public` 또는 생략. Render 등에서 별도 스키마 사용 시 `DB_SCHEMA`에 해당 스키마명 지정
+1. **PostgreSQL** 준비: 로컬 PostgreSQL, Render PostgreSQL, 또는 **Supabase**(무료) 중 선택
+2. **스키마·테이블 생성**: `backend/database/final.sql` 실행
+   - **Supabase**: 대시보드 → SQL Editor에 `final.sql` 내용 붙여넣고 Run (스키마 `hamburger-collection` 생성)
+   - **DBeaver**: PostgreSQL 연결 후 `final.sql` 실행 (스키마 사용 시 `DB_SCHEMA`와 동일하게 맞출 것)
+3. **환경 변수**: 스키마를 `hamburger-collection`으로 쓴 경우 `DB_SCHEMA=hamburger-collection` 설정
 
-```bash
-# DBeaver 사용 시
-# 1. PostgreSQL 연결
-# 2. hamburger_collection 데이터베이스 생성
-# 3. database/final.sql 파일 실행
-```
+**무료 배포 (Supabase + Render + UptimeRobot)** 로 DB 30일 만료·Web Service sleep을 피하려면 프로젝트 루트의 **`SUPABASE_UPTIMEROBOT_SETUP.md`** 를 참고하세요.
 
 #### 개발 서버 실행
 
@@ -207,7 +210,8 @@ KAKAO_LOCAL_API_KEY=your-kakao-local-api-key
 npm run start:dev
 ```
 
-백엔드 서버는 `http://localhost:3001`에서 실행됩니다.
+백엔드 서버는 `http://localhost:3001`에서 실행됩니다.  
+**API 문서 (Swagger)**: `http://localhost:3001/api-docs` — JWT 인증 후 관리자 메뉴 수집은 `POST /admin/menu-items/{mcdonalds|burgerking|lotteria|momstouch|kfc|nobrand|frank}/scrape` 호출.
 
 ### 3. 프론트엔드 설정
 
@@ -314,10 +318,11 @@ hamburger-collection/
 │   │   ├── comments/         # 댓글 모듈
 │   │   ├── stores/            # 매장 검색 모듈
 │   │   ├── favorites/        # 즐겨찾기 모듈
-│   │   └── admin/            # 관리자 모듈
+│   │   └── admin/            # 관리자 모듈 (브랜드별 메뉴 스크래핑 API)
 │   │       └── scrapers/     # 웹 스크래퍼
+│   ├── constants/            # 공통 상수 (예: DB 스키마명)
 │   ├── database/             # 데이터베이스 스크립트
-│   │   └── final.sql
+│   │   └── final.sql         # Supabase SQL Editor 또는 DBeaver에서 실행
 │   └── test/                 # 테스트 파일
 │
 └── README.md                 # 프로젝트 문서
@@ -362,9 +367,8 @@ nutrition (영양정보)
 ├── id (PK, UUID)
 ├── menu_item_id (FK → menu_items.id, UNIQUE)
 ├── kcal
-├── carbohydrate
 ├── protein
-├── fat
+├── saturatedFat (포화지방)
 ├── sodium
 └── sugar
 
@@ -499,19 +503,22 @@ ingest_logs (수집 로그)
 
 **참고**: `frontend/app/board/[id]/edit/page.tsx`, `frontend/lib/api.ts`
 
-#### 9. 로컬에서 fetch failed / uuid_generate_v4() does not exist
+#### 9. 로컬에서 fetch failed / uuid_generate_v4() does not exist / DBeaver에 데이터 안 보임
 
-**문제**: 프론트엔드에서 `fetch failed` 발생, 또는 백엔드 기동 시 `function uuid_generate_v4() does not exist` 로 DB 연결 실패  
+**문제**: 프론트엔드에서 `fetch failed` 발생, 백엔드 기동 시 `function uuid_generate_v4() does not exist` 로 DB 연결 실패, 또는 스크래핑 성공했는데 DBeaver의 `hamburger-collection.menu_items`에 데이터가 없음  
 **원인**:
 
-- `fetch failed`: 백엔드가 3001에서 떠 있지 않음 (위 DB 에러로 기동 실패한 경우)
-- `uuid_generate_v4()`: `DB_SCHEMA`를 `public`이 아닌 값(예: `hamburger-collection`)으로 사용할 때, PostgreSQL의 `search_path`에 `public`이 없어 `uuid-ossp` 확장 함수를 찾지 못함  
-  **해결**:
-- 백엔드 `.env`에서 JWT 변수명 확인: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 사용 (코드에서 `JWT_SECRET` 미사용)
-- 비공개 스키마 사용 시: TypeORM 연결 옵션에 `search_path`에 `public` 포함 (`backend/src/app.module.ts`에서 `extra.options`로 처리됨)
-- Render PostgreSQL 사용 시: `DB_SSL=true` 설정
+- `fetch failed`: 백엔드가 3001에서 떠 있지 않음 (DB 에러로 기동 실패한 경우)
+- `uuid_generate_v4()`: Supabase SQL Editor에서 `final.sql` 실행 시 `uuid-ossp` 확장이 없을 수 있음 → `final.sql`은 `gen_random_uuid()` 사용으로 수정됨
+- **데이터가 다른 스키마에 쌓임**: Supabase pooler 사용 시 `search_path`가 적용되지 않아 `public` 스키마에 insert될 수 있음  
 
-**참고**: `backend/src/app.module.ts`, `backend/.env.example`, `ENV_SETUP.md`(있을 경우)
+**해결**:
+
+- 백엔드 `.env`: `JWT_ACCESS_SECRET`, `JWT_REFRESH_SECRET` 사용 (코드에서 `JWT_SECRET` 미사용)
+- Render/Supabase PostgreSQL 사용 시: `DB_SSL=true` 설정
+- 스키마 고정: 모든 엔티티에 `schema: 'hamburger-collection'` 명시 (`backend/src/constants/database.ts`, 각 `*.entity.ts`) → pooler 환경에서도 `hamburger-collection` 스키마에만 읽기/쓰기
+
+**참고**: `backend/src/app.module.ts`, `backend/src/constants/database.ts`, `SUPABASE_UPTIMEROBOT_SETUP.md`
 
 ### 💭 프로젝트 후기
 
