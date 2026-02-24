@@ -1,8 +1,7 @@
 interface NutritionData {
   kcal?: number;
-  carbohydrate?: number;
   protein?: number;
-  fat?: number;
+  saturatedFat?: number;
   sodium?: number;
   sugar?: number;
 }
@@ -14,9 +13,8 @@ interface NutritionTableProps {
 export default function NutritionTable({ nutrition }: NutritionTableProps) {
   const items = [
     { label: "칼로리", value: nutrition.kcal, unit: "kcal" },
-    { label: "탄수화물", value: nutrition.carbohydrate, unit: "g" },
     { label: "단백질", value: nutrition.protein, unit: "g" },
-    { label: "지방", value: nutrition.fat, unit: "g" },
+    { label: "포화지방", value: nutrition.saturatedFat, unit: "g" },
     { label: "나트륨", value: nutrition.sodium, unit: "mg" },
     { label: "당류", value: nutrition.sugar, unit: "g" },
   ];

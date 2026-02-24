@@ -168,6 +168,12 @@ export default function MenuDetailPage() {
                     {menuItem.nutrition.sugar ?? "-"} g
                   </div>
                 </div>
+                <div>
+                  <div className="text-sm text-gray-600">포화지방</div>
+                  <div className="text-xl font-bold text-gray-900">
+                    {menuItem.nutrition.saturatedFat ?? "-"} g
+                  </div>
+                </div>
               </div>
             </div>
           )}
