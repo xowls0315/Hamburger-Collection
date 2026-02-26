@@ -545,7 +545,7 @@ ingest_logs (수집 로그)
   <tr>
     <td align="center">
       <div style="background-color:#f5f5f5; padding:10px; border-radius:12px; display:inline-block;">
-        <img width="1849" height="585" alt="image" src="https://github.com/user-attachments/assets/9a16501b-7110-4489-9d87-1ef232d014c2" />
+        <img width="1918" height="903" alt="image" src="https://github.com/user-attachments/assets/89f96d58-a478-4c1c-a123-e5c4f1403781" />
       </div>
     </td>
   </tr>
@@ -558,7 +558,7 @@ ingest_logs (수집 로그)
   <tr>
     <td align="center">
       <div style="background-color:#f5f5f5; padding:10px; border-radius:12px; display:inline-block;">
-        <img width="1832" height="902" alt="image" src="https://github.com/user-attachments/assets/207df631-c04c-4c42-b5e8-b5121dfbb28d" />
+        <img width="1895" height="907" alt="image" src="https://github.com/user-attachments/assets/819845ba-4940-4de2-b7dc-a44b4d7f9c48" />
       </div>
     </td>
   </tr>
