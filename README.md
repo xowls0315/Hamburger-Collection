@@ -459,19 +459,7 @@ ingest_logs (수집 로그)
 
 **참고**: `frontend/app/auth/callback/page.tsx`, `frontend/app/board/page.tsx`
 
-#### 5. 타임존 문제 (UTC vs KST)
-
-**문제**: DB의 `created_at`, `updated_at` 필드가 한국 시간(KST)보다 9시간 느리게 표시됨  
-**원인**: PostgreSQL이 UTC로 저장하고, 프론트엔드에서 변환하지 않음  
-**해결**:
-
-- 백엔드/DB는 UTC 유지
-- 프론트엔드에서 UTC 시간을 KST로 변환하는 유틸리티 함수 구현 (`utils/formatDate.ts`)
-- 모든 날짜 표시에 변환 함수 적용
-
-**참고**: `frontend/utils/formatDate.ts`
-
-#### 6. Access Token 자동 갱신
+#### 5. Access Token 자동 갱신
 
 **문제**: Access Token 만료 시 사용자가 재로그인해야 함  
 **해결**:
@@ -482,7 +470,7 @@ ingest_logs (수집 로그)
 
 **참고**: `frontend/app/context/AuthContext.tsx`, `frontend/lib/api.ts`
 
-#### 7. Render 배포 시 nest 명령어 오류
+#### 6. Render 배포 시 nest 명령어 오류
 
 **문제**: `sh: 1: nest: not found` 에러 발생  
 **해결**:
@@ -492,7 +480,7 @@ ingest_logs (수집 로그)
 
 **참고**: `backend/package.json`
 
-#### 8. TypeScript 타입 에러 (Vercel 빌드)
+#### 7. TypeScript 타입 에러 (Vercel 빌드)
 
 **문제**: Vercel 빌드 시 여러 TypeScript 타입 에러 발생  
 **해결**:
@@ -503,7 +491,7 @@ ingest_logs (수집 로그)
 
 **참고**: `frontend/app/board/[id]/edit/page.tsx`, `frontend/lib/api.ts`
 
-#### 9. 로컬에서 fetch failed / uuid_generate_v4() does not exist / DBeaver에 데이터 안 보임
+#### 8. 로컬/Supabase: fetch failed / uuid_generate_v4() / DBeaver에 데이터 안 보임
 
 **문제**: 프론트엔드에서 `fetch failed` 발생, 백엔드 기동 시 `function uuid_generate_v4() does not exist` 로 DB 연결 실패, 또는 스크래핑 성공했는데 DBeaver의 `hamburger-collection.menu_items`에 데이터가 없음  
 **원인**:
