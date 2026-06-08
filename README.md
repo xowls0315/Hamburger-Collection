@@ -3,8 +3,8 @@
 **햄버거 브랜드별 메뉴/영양정보를 한 곳에서 탐색하고, 내 주변 매장까지 확인하며, 카카오·일반 로그인 기반 게시판/댓글 커뮤니티를 제공하는 웹 서비스**
 
 - 🌐 **프론트엔드 URL (Vercel)**: https://hamburger-collection.vercel.app
-- 🌐 **백엔드 URL (Render)**: https://hamburger-collection-backend.onrender.com
-- 📚 **API 문서 (Swagger)**: https://hamburger-collection-backend.onrender.com/api-docs
+- 🌐 **백엔드 URL (Render)**: https://hamburger-collection-backend-ypkw.onrender.com
+- 📚 **API 문서 (Swagger)**: https://hamburger-collection-backend-ypkw.onrender.com/api-docs
 
 ---
 
@@ -249,7 +249,7 @@ npm run dev
 4. **카카오 로그인 설정**
    - Redirect URI: **백엔드** 콜백 URL 등록
      - 로컬: `http://localhost:3001/auth/kakao/callback`
-     - 배포: `https://hamburger-collection-backend.onrender.com/auth/kakao/callback`
+     - 배포: `https://hamburger-collection-backend-ypkw.onrender.com/auth/kakao/callback`
 5. **API 키**
    - REST API 키 → `KAKAO_REST_API_KEY`, 매장 검색용 → `KAKAO_LOCAL_API_KEY`
    - JavaScript 키 → 프론트 `NEXT_PUBLIC_KAKAO_MAP_KEY` (카카오맵)
