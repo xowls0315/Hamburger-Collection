@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { SlPencil } from "react-icons/sl";
 import { getPosts, Post } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
-import { PostCardSkeleton } from "../../_components/ui/Skeleton";
+import { PostCardSkeleton } from "../../components/ui/Skeleton";
 import { formatDate } from "../../utils/formatDate";
 
 function BoardPageContent() {

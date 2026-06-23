@@ -6,7 +6,7 @@ import Link from "next/link";
 import { FaLongArrowAltLeft } from "react-icons/fa";
 import { getPost, updatePost } from "../../../../lib/api";
 import { useAuth } from "../../../../hooks/useAuth";
-import { Skeleton } from "../../../../_components/ui/Skeleton";
+import { Skeleton } from "../../../../components/ui/Skeleton";
 
 export default function EditPostPage() {
   const router = useRouter();

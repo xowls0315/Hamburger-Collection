@@ -11,8 +11,8 @@ import {
   MenuListResponse,
   MenuItem,
 } from "../../../lib/api";
-import MenuCard from "../../../_components/ui/MenuCard";
-import { MenuCardSkeleton } from "../../../_components/ui/Skeleton";
+import MenuCard from "../../../components/ui/MenuCard";
+import { MenuCardSkeleton } from "../../../components/ui/Skeleton";
 
 function BrandPageContent() {
   const params = useParams();

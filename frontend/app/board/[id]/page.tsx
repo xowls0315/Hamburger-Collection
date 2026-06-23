@@ -15,7 +15,7 @@ import {
   Comment,
 } from "../../../lib/api";
 import { useAuth } from "../../../hooks/useAuth";
-import { PostCardSkeleton, CommentSkeleton, Skeleton } from "../../../_components/ui/Skeleton";
+import { PostCardSkeleton, CommentSkeleton, Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime } from "../../../utils/formatDate";
 
 export default function PostDetailPage() {

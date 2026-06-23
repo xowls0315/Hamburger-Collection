@@ -280,7 +280,7 @@ hamburger-collection/
 │   │   ├── favorites/        # 즐겨찾기
 │   │   ├── guide/            # 가이드 페이지
 │   │   └── mypage/           # 마이페이지
-│   ├── _components/          # 컴포넌트
+│   ├── components/          # 컴포넌트
 │   │   ├── layout/           # 레이아웃 컴포넌트
 │   │   │   ├── Header.tsx
 │   │   │   ├── Sidebar.tsx
@@ -447,7 +447,7 @@ ingest_logs (수집 로그)
 - 맘스터치 이미지에 대해서만 일반 `img` 태그 사용 (Next.js Image Optimization 우회)
 - 다른 브랜드 이미지는 계속 Next.js `Image` 컴포넌트 사용
 
-**참고**: `frontend/_components/ui/MenuCard.tsx`, `frontend/app/brand/[slug]/menu/[id]/page.tsx`
+**참고**: `frontend/components/ui/MenuCard.tsx`, `frontend/app/brand/[slug]/menu/[id]/page.tsx`
 
 #### 4. Vercel 배포 시 useSearchParams 에러
 

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "../styles/globals.css";
-import Header from "../_components/layout/Header";
-import Sidebar from "../_components/layout/Sidebar";
+import Header from "../components/layout/Header";
+import Sidebar from "../components/layout/Sidebar";
 import { AuthProvider } from "../hooks/useAuth";
 
 const geistSans = Geist({
@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Hamburger-Collection",
-  description: "브랜드별 햄버거 메뉴와 영양정보를 한 곳에서 탐색하세요",
+  description: "???? ??? ??? ????? ? ??? ?????",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",

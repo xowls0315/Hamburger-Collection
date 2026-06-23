@@ -3,7 +3,7 @@
 import { useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "../../../hooks/useAuth";
-import { Skeleton } from "../../../_components/ui/Skeleton";
+import { Skeleton } from "../../../components/ui/Skeleton";
 import { refreshToken } from "../../../lib/api";
 
 function AuthCallbackContent() {

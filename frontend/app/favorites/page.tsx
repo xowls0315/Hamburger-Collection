@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { FaStar, FaRegStar } from "react-icons/fa";
 import { getFavorites, removeFavorite, Favorite, MenuItem } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
-import { MenuCardSkeleton } from "../../_components/ui/Skeleton";
-import MenuCard from "../../_components/ui/MenuCard";
+import { MenuCardSkeleton } from "../../components/ui/Skeleton";
+import MenuCard from "../../components/ui/MenuCard";
 
 export default function FavoritesPage() {
   const router = useRouter();

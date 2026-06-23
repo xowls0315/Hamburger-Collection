@@ -8,8 +8,8 @@ import { FaLongArrowAltLeft, FaLongArrowAltRight } from "react-icons/fa";
 import { FaStar, FaRegStar } from "react-icons/fa";
 import { getMenuItem, MenuItem, checkFavorite, addFavorite, removeFavorite } from "../../../../../lib/api";
 import { useAuth } from "../../../../../hooks/useAuth";
-import NutritionTable from "../../../../../_components/ui/NutritionTable";
-import { MenuDetailSkeleton } from "../../../../../_components/ui/Skeleton";
+import NutritionTable from "../../../../../components/ui/NutritionTable";
+import { MenuDetailSkeleton } from "../../../../../components/ui/Skeleton";
 
 export default function MenuDetailPage() {
   const params = useParams();

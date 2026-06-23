@@ -6,7 +6,7 @@ import { useParams } from "next/navigation";
 import { FaLongArrowAltRight, FaLongArrowAltLeft } from "react-icons/fa";
 import { IoLocationOutline } from "react-icons/io5";
 import { getBrand, searchStores, Store } from "../../../../lib/api";
-import { StoreCardSkeleton } from "../../../../_components/ui/Skeleton";
+import { StoreCardSkeleton } from "../../../../components/ui/Skeleton";
 
 declare global {
   interface Window {
