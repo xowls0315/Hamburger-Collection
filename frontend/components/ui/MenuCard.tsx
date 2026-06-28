@@ -1,12 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { FaLongArrowAltRight } from "react-icons/fa";
 import { FaStar, FaRegStar } from "react-icons/fa";
-import { MenuItem, checkFavorite, addFavorite, removeFavorite } from "../../lib/api";
+import { MenuItem } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  useFavoriteCheck,
+  useAddFavorite,
+  useRemoveFavorite,
+} from "../../hooks/queries/useFavorites";
 
 interface MenuCardProps {
   menuItem: MenuItem;
@@ -16,16 +20,12 @@ interface MenuCardProps {
 export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
   const kcal = menuItem.nutrition?.kcal;
   const { user } = useAuth();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (user && menuItem.id) {
-      checkFavorite(menuItem.id)
-        .then((result) => setIsFavorite(result.isFavorite))
-        .catch(() => setIsFavorite(false));
-    }
-  }, [user, menuItem.id]);
+  const { data: favoriteCheck } = useFavoriteCheck(menuItem.id, !!user);
+  const isFavorite = favoriteCheck?.isFavorite ?? false;
+  const addFavoriteMutation = useAddFavorite();
+  const removeFavoriteMutation = useRemoveFavorite();
+  const loading =
+    addFavoriteMutation.isPending || removeFavoriteMutation.isPending;
 
   const handleToggleFavorite = async (e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
@@ -37,18 +37,15 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
     }
 
     try {
-      setLoading(true);
       if (isFavorite) {
-        await removeFavorite(menuItem.id);
-        setIsFavorite(false);
+        await removeFavoriteMutation.mutateAsync(menuItem.id);
       } else {
-        await addFavorite(menuItem.id);
-        setIsFavorite(true);
+        await addFavoriteMutation.mutateAsync(menuItem.id);
       }
-    } catch (error: any) {
-      alert(error.message || "즐겨찾기 처리에 실패했습니다.");
-    } finally {
-      setLoading(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "즐겨찾기 처리에 실패했습니다.";
+      alert(message);
     }
   };
 
@@ -89,34 +86,33 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
             />
           )
         ) : (
-          <div className="flex h-full items-center justify-center text-gray-400">
+          <div className="flex h-full items-center justify-center text-gray-400 text-4xl">
             🍔
           </div>
         )}
       </div>
-      {/* 텍스트 영역 (flex-1로 남은 공간 차지) */}
-      <div className="flex flex-col flex-1 min-h-0">
-        <h3 className="mb-2 font-semibold text-gray-800 shrink-0">{menuItem.name}</h3>
-        {/* Description 영역 - 고정 높이 설정 */}
-        <div className="mb-2 min-h-10 shrink-0">
-          {menuItem.description ? (
-            <p className="text-sm text-gray-600 line-clamp-2">
-              {menuItem.description}
-            </p>
-          ) : (
-            <div className="h-10"></div>
-          )}
+
+      {/* 텍스트 영역 */}
+      <div className="flex flex-col flex-1">
+        <h3 className="mb-1 text-lg font-semibold text-gray-800 line-clamp-2">
+          {menuItem.name}
+        </h3>
+        {menuItem.description && (
+          <p className="mb-2 text-sm text-gray-600 line-clamp-2 flex-1">
+            {menuItem.description}
+          </p>
+        )}
+        <div className="mt-auto flex items-center justify-between">
+          <span className="text-sm font-medium text-orange-600">
+            {kcal != null ? `${kcal} kcal` : "칼로리 정보 없음"}
+          </span>
+          <Link
+            href={`/brand/${brandSlug}/menu/${menuItem.id}`}
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            상세보기 <FaLongArrowAltRight className="text-xs" />
+          </Link>
         </div>
-        <div className="mb-2 text-sm text-gray-600 shrink-0">
-          {kcal !== undefined && <span className="underline">칼로리: {kcal} kcal</span>}
-        </div>
-        {/* 상세보기 버튼 - 하단 고정 */}
-        <Link
-          href={`/brand/${brandSlug}/menu/${menuItem.id}`}
-          className="mt-auto w-fit flex items-center gap-1 text-md font-bold text-orange-600 hover:underline shrink-0"
-        >
-          상세보기 <FaLongArrowAltRight />
-        </Link>
       </div>
     </div>
   );

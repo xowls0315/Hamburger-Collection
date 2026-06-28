@@ -3,7 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "../styles/globals.css";
 import Header from "../components/layout/Header";
 import Sidebar from "../components/layout/Sidebar";
-import { AuthProvider } from "../hooks/useAuth";
+import QueryProvider from "../providers/QueryProvider";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Hamburger-Collection",
-  description: "???? ??? ??? ????? ? ??? ?????",
+  description: "브랜드별 햄버거 메뉴와 영양정보를 한 곳에서 탐색하세요",
   icons: {
     icon: "/logo.png",
     shortcut: "/logo.png",
@@ -35,7 +35,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <AuthProvider>
+        <QueryProvider>
           <div className="flex min-h-screen flex-col">
             <Header />
             <div className="flex flex-1">
@@ -43,7 +43,7 @@ export default function RootLayout({
               <Sidebar />
             </div>
           </div>
-        </AuthProvider>
+        </QueryProvider>
       </body>
     </html>
   );

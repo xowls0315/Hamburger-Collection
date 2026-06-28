@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FaLongArrowAltRight, FaLongArrowAltLeft } from "react-icons/fa";
 import { IoLocationOutline } from "react-icons/io5";
-import { getBrand, searchStores, Store } from "../../../../lib/api";
+import { Store } from "../../../../lib/api";
+import { useBrand } from "../../../../hooks/queries/useBrands";
+import { useStoreSearch } from "../../../../hooks/queries/useStores";
 import { StoreCardSkeleton } from "../../../../components/ui/Skeleton";
 
 declare global {
@@ -23,25 +25,33 @@ export default function StoresPage() {
   const currentLocationMarkerRef = useRef<any>(null);
   const currentLocationOverlayRef = useRef<any>(null); // 현재 위치 CustomOverlay // 현재 위치 마커
 
-  const [brand, setBrand] = useState<any>(null);
   const [stores, setStores] = useState<Store[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [searchCoords, setSearchCoords] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
   const [location, setLocation] = useState<{ lat: number; lng: number } | null>(
     null
   );
-  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null); // 선택된 매장
+  const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadBrand = async () => {
-      try {
-        const brandData = await getBrand(slug);
-        setBrand(brandData);
-      } catch (error) {
-        console.error("브랜드 로딩 실패:", error);
-      }
-    };
-    loadBrand();
-  }, [slug]);
+  const { data: brandData } = useBrand(slug);
+  const brand = brandData ?? null;
+
+  const {
+    data: storeSearchResult,
+    isLoading: storeSearchLoading,
+    isFetching: storeSearchFetching,
+    error: storeSearchError,
+  } = useStoreSearch(
+    slug,
+    searchCoords?.lat ?? null,
+    searchCoords?.lng ?? null,
+  );
+
+  const queryLoading = storeSearchLoading || storeSearchFetching;
+  const loading = geoLoading || queryLoading;
 
   // 카카오맵 초기화
   useEffect(() => {
@@ -299,19 +309,60 @@ export default function StoresPage() {
     mapInstanceRef.current.setBounds(bounds);
   };
 
-  const handleSearch = async () => {
-    console.log("매장 검색 버튼 클릭됨");
-    
+  useEffect(() => {
+    if (!storeSearchResult || !location) return;
+
+    const sortedStores = [...(storeSearchResult.stores || [])].sort((a, b) => {
+      const distanceA = parseFloat(a.distance || "0");
+      const distanceB = parseFloat(b.distance || "0");
+      return distanceA - distanceB;
+    });
+    setStores(sortedStores);
+
+    const { lat, lng } = location;
+    const initMapIfNeeded = () => {
+      if (!mapInstanceRef.current) {
+        if (window.kakao && window.kakao.maps) {
+          window.kakao.maps.load(() => {
+            initializeMap(lat, lng);
+            updateMapMarkers(sortedStores, lat, lng);
+          });
+        } else {
+          setTimeout(() => {
+            if (window.kakao && window.kakao.maps) {
+              window.kakao.maps.load(() => {
+                initializeMap(lat, lng);
+                updateMapMarkers(sortedStores, lat, lng);
+              });
+            }
+          }, 1000);
+        }
+      } else {
+        updateMapMarkers(sortedStores, lat, lng);
+      }
+    };
+
+    initMapIfNeeded();
+  }, [storeSearchResult, location]);
+
+  useEffect(() => {
+    if (!storeSearchError) return;
+    const message =
+      storeSearchError instanceof Error
+        ? storeSearchError.message
+        : "매장 검색에 실패했습니다.";
+    alert(message);
+    setStores([]);
+  }, [storeSearchError]);
+
+  const handleSearch = () => {
     if (!navigator.geolocation) {
       alert("이 브라우저는 위치 서비스를 지원하지 않습니다.");
       return;
     }
 
-    // 즉시 로딩 상태 표시
-    setLoading(true);
-    console.log("위치 서비스 사용 가능, 위치 요청 시작...");
-    
-    // 위치 권한 옵션 설정
+    setGeoLoading(true);
+
     const options = {
       enableHighAccuracy: true,
       timeout: 10000,
@@ -319,78 +370,20 @@ export default function StoresPage() {
     };
 
     navigator.geolocation.getCurrentPosition(
-      async (position) => {
-        console.log("위치 정보 획득 성공:", position.coords);
+      (position) => {
         const lat = position.coords.latitude;
         const lng = position.coords.longitude;
         setLocation({ lat, lng });
-
-        try {
-          console.log("매장 검색 시작:", { slug, lat, lng });
-          const result = await searchStores(slug, lat, lng, 5000);
-          console.log("매장 검색 결과:", result);
-          
-          // 백엔드 응답이 배열인 경우와 객체인 경우 모두 처리
-          let stores = Array.isArray(result) ? result : (result.stores || []);
-          
-          // 거리순으로 정렬 (거리가 작은 순서대로)
-          stores = stores.sort((a, b) => {
-            const distanceA = parseFloat(a.distance || "0");
-            const distanceB = parseFloat(b.distance || "0");
-            return distanceA - distanceB;
-          });
-          
-          setStores(stores);
-          
-          // 지도가 없으면 초기화 시도
-          const initMapIfNeeded = () => {
-            if (!mapInstanceRef.current) {
-              if (window.kakao && window.kakao.maps) {
-                window.kakao.maps.load(() => {
-                  initializeMap(lat, lng);
-                  updateMapMarkers(stores, lat, lng);
-                });
-              } else {
-                // 카카오맵이 아직 로드되지 않았으면 잠시 대기 후 재시도
-                setTimeout(() => {
-                  if (window.kakao && window.kakao.maps) {
-                    window.kakao.maps.load(() => {
-                      initializeMap(lat, lng);
-                      updateMapMarkers(stores, lat, lng);
-                    });
-                  } else {
-                    console.warn("카카오맵을 사용할 수 없습니다.");
-                  }
-                }, 1000);
-              }
-            } else {
-              updateMapMarkers(stores, lat, lng);
-            }
-          };
-
-          if (stores.length > 0) {
-            console.log(`${stores.length}개의 매장 발견`);
-            initMapIfNeeded();
-          } else {
-            console.log("주변에 매장이 없습니다.");
-            // 매장이 없어도 현재 위치는 표시
-            initMapIfNeeded();
-          }
-        } catch (error: any) {
-          console.error("매장 검색 실패:", error);
-          alert(error.message || "매장 검색에 실패했습니다.");
-          setStores([]);
-        } finally {
-          setLoading(false);
-        }
+        setSearchCoords({ lat, lng });
+        setGeoLoading(false);
       },
       (error) => {
-        console.error("위치 정보 가져오기 실패:", error);
         let errorMessage = "위치 정보를 가져올 수 없습니다.";
-        
+
         switch (error.code) {
           case error.PERMISSION_DENIED:
-            errorMessage = "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.";
+            errorMessage =
+              "위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.";
             break;
           case error.POSITION_UNAVAILABLE:
             errorMessage = "위치 정보를 사용할 수 없습니다.";
@@ -399,9 +392,9 @@ export default function StoresPage() {
             errorMessage = "위치 정보 요청 시간이 초과되었습니다.";
             break;
         }
-        
+
         alert(errorMessage);
-        setLoading(false);
+        setGeoLoading(false);
       },
       options
     );

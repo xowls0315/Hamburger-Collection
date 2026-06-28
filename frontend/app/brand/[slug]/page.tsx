@@ -5,12 +5,8 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { IoLocationOutline } from "react-icons/io5";
 import { FaSearch } from "react-icons/fa";
-import {
-  getBrand,
-  getMenuItems,
-  MenuListResponse,
-  MenuItem,
-} from "../../../lib/api";
+import { MenuItem } from "../../../lib/api";
+import { useBrand, useMenuItems } from "../../../hooks/queries/useBrands";
 import MenuCard from "../../../components/ui/MenuCard";
 import { MenuCardSkeleton } from "../../../components/ui/Skeleton";
 
@@ -20,9 +16,6 @@ function BrandPageContent() {
   const searchParams = useSearchParams();
   const slug = params.slug as string;
 
-  const [brand, setBrand] = useState<any>(null);
-  const [menuData, setMenuData] = useState<MenuListResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [sort, setSort] = useState(searchParams.get("sort") || "");
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1"));
   const [searchQuery, setSearchQuery] = useState("");
@@ -30,7 +23,6 @@ function BrandPageContent() {
   const [searchPage, setSearchPage] = useState(1);
   const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 디바운스 처리
   useEffect(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -38,8 +30,8 @@ function BrandPageContent() {
 
     debounceTimerRef.current = setTimeout(() => {
       setDebouncedSearchQuery(searchQuery);
-      setSearchPage(1); // 검색어가 변경되면 첫 페이지로
-    }, 300); // 300ms 디바운스
+      setSearchPage(1);
+    }, 300);
 
     return () => {
       if (debounceTimerRef.current) {
@@ -48,26 +40,13 @@ function BrandPageContent() {
     };
   }, [searchQuery]);
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        // 검색을 위해 limit을 크게 설정 (실제로는 모든 메뉴를 가져와서 클라이언트에서 필터링)
-        const [brandData, menuData] = await Promise.all([
-          getBrand(slug),
-          getMenuItems(slug, { sort, page: 1, limit: 1000 }), // 검색을 위해 모든 메뉴 가져오기
-        ]);
-        setBrand(brandData);
-        setMenuData(menuData);
-      } catch (error) {
-        console.error("데이터 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [slug, sort]); // page는 제거 (검색 시 클라이언트 필터링 사용)
+  const { data: brand, isLoading: brandLoading } = useBrand(slug);
+  const { data: menuData, isLoading: menuLoading } = useMenuItems(slug, {
+    sort,
+    page: 1,
+    limit: 1000,
+  });
+  const loading = brandLoading || menuLoading;
 
   const handleSortChange = (newSort: string) => {
     setSort(newSort);

@@ -4,8 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import { FaLongArrowAltLeft } from "react-icons/fa";
-import { getPost, updatePost } from "../../../../lib/api";
 import { useAuth } from "../../../../hooks/useAuth";
+import { usePost, useUpdatePost } from "../../../../hooks/queries/usePosts";
 import { Skeleton } from "../../../../components/ui/Skeleton";
 
 export default function EditPostPage() {
@@ -14,31 +14,25 @@ export default function EditPostPage() {
   const { user } = useAuth();
   const id = params.id as string;
 
+  const { data: post, isLoading: loading } = usePost(id);
+  const updatePostMutation = useUpdatePost();
+
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
+  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    const loadPost = async () => {
-      try {
-        const post = await getPost(id);
-        // author가 없거나 사용자가 작성자가 아니면 접근 불가
-        if (user && post.author && user.id !== post.author.id) {
-          router.push(`/board/${id}`);
-          return;
-        }
-        setTitle(post.title);
-        setContent(post.content);
-      } catch (error) {
-        console.error("게시글 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (!post || initialized) return;
 
-    loadPost();
-  }, [id, user, router]);
+    if (user && post.author && user.id !== post.author.id) {
+      router.push(`/board/${id}`);
+      return;
+    }
+
+    setTitle(post.title);
+    setContent(post.content);
+    setInitialized(true);
+  }, [post, user, router, id, initialized]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -49,17 +43,18 @@ export default function EditPostPage() {
     }
 
     try {
-      setSaving(true);
-      await updatePost(id, { title, content });
+      await updatePostMutation.mutateAsync({ id, data: { title, content } });
       router.push(`/board/${id}`);
-    } catch (error: any) {
-      alert(error.message || "게시글 수정에 실패했습니다.");
-    } finally {
-      setSaving(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "게시글 수정에 실패했습니다.";
+      alert(message);
     }
   };
 
-  if (loading || saving) {
+  const saving = updatePostMutation.isPending;
+
+  if (loading || saving || !initialized) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Skeleton className="mb-6 h-10 w-48" />

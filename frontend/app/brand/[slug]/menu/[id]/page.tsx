@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useParams } from "next/navigation";
 import { FaLongArrowAltLeft, FaLongArrowAltRight } from "react-icons/fa";
 import { FaStar, FaRegStar } from "react-icons/fa";
-import { getMenuItem, MenuItem, checkFavorite, addFavorite, removeFavorite } from "../../../../../lib/api";
 import { useAuth } from "../../../../../hooks/useAuth";
+import { useMenuItem } from "../../../../../hooks/queries/useBrands";
+import {
+  useFavoriteCheck,
+  useAddFavorite,
+  useRemoveFavorite,
+} from "../../../../../hooks/queries/useFavorites";
 import NutritionTable from "../../../../../components/ui/NutritionTable";
 import { MenuDetailSkeleton } from "../../../../../components/ui/Skeleton";
 
@@ -16,36 +20,21 @@ export default function MenuDetailPage() {
   const slug = params.slug as string;
   const id = params.id as string;
 
-  const [menuItem, setMenuItem] = useState<MenuItem | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { user } = useAuth();
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const { data: menuItem, isLoading: loading, error: queryError } = useMenuItem(id);
+  const { data: favoriteCheck } = useFavoriteCheck(id, !!user);
+  const isFavorite = favoriteCheck?.isFavorite ?? false;
+  const addFavoriteMutation = useAddFavorite();
+  const removeFavoriteMutation = useRemoveFavorite();
+  const favoriteLoading =
+    addFavoriteMutation.isPending || removeFavoriteMutation.isPending;
 
-  useEffect(() => {
-    const loadMenu = async () => {
-      try {
-        setLoading(true);
-        const data = await getMenuItem(id);
-        setMenuItem(data);
-      } catch (err: any) {
-        setError(err.message || "메뉴를 불러올 수 없습니다.");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMenu();
-  }, [id]);
-
-  useEffect(() => {
-    if (user && menuItem?.id) {
-      checkFavorite(menuItem.id)
-        .then((result) => setIsFavorite(result.isFavorite))
-        .catch(() => setIsFavorite(false));
-    }
-  }, [user, menuItem?.id]);
+  const error =
+    queryError instanceof Error
+      ? queryError.message
+      : queryError
+        ? "메뉴를 불러올 수 없습니다."
+        : null;
 
   const handleToggleFavorite = async () => {
     if (!user) {
@@ -56,18 +45,15 @@ export default function MenuDetailPage() {
     if (!menuItem) return;
 
     try {
-      setFavoriteLoading(true);
       if (isFavorite) {
-        await removeFavorite(menuItem.id);
-        setIsFavorite(false);
+        await removeFavoriteMutation.mutateAsync(menuItem.id);
       } else {
-        await addFavorite(menuItem.id);
-        setIsFavorite(true);
+        await addFavoriteMutation.mutateAsync(menuItem.id);
       }
-    } catch (error: any) {
-      alert(error.message || "즐겨찾기 처리에 실패했습니다.");
-    } finally {
-      setFavoriteLoading(false);
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error ? err.message : "즐겨찾기 처리에 실패했습니다.";
+      alert(message);
     }
   };
 
@@ -97,12 +83,10 @@ export default function MenuDetailPage() {
       </div>
 
       <div className="grid gap-8 md:grid-cols-2">
-        {/* 이미지 영역 */}
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <div className="aspect-square w-full rounded-lg bg-gray-200 relative overflow-hidden">
             {menuItem.imageUrl ? (
-              // 맘스터치 이미지는 Next.js Image Optimization이 실패하므로 unoptimized 사용
-              menuItem.imageUrl.includes('momstouch.co.kr') ? (
+              menuItem.imageUrl.includes("momstouch.co.kr") ? (
                 <img
                   src={menuItem.imageUrl}
                   alt={menuItem.name}
@@ -125,7 +109,6 @@ export default function MenuDetailPage() {
           </div>
         </div>
 
-        {/* 정보 영역 */}
         <div className="space-y-6">
           <div>
             <h1 className="mb-2 text-3xl font-bold text-gray-900">
@@ -137,7 +120,6 @@ export default function MenuDetailPage() {
             )}
           </div>
 
-          {/* 핵심 영양정보 */}
           {menuItem.nutrition && (
             <div className="rounded-lg border border-gray-200 bg-gray-50 p-4">
               <h2 className="mb-4 text-lg font-semibold text-gray-800">
@@ -178,7 +160,6 @@ export default function MenuDetailPage() {
             </div>
           )}
 
-          {/* 출처 링크 및 즐겨찾기 */}
           <div className="flex items-center gap-3">
             {menuItem.detailUrl && (
               <a
@@ -215,7 +196,6 @@ export default function MenuDetailPage() {
         </div>
       </div>
 
-      {/* 상세 영양성분 표 */}
       {menuItem.nutrition && (
         <div className="mt-8 rounded-lg border border-gray-200 bg-white p-6">
           <h2 className="mb-4 text-xl font-semibold text-gray-800">

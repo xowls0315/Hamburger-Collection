@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FaLongArrowAltLeft } from "react-icons/fa";
-import {
-  getPost,
-  getComments,
-  createComment,
-  updateComment,
-  deleteComment,
-  deletePost,
-  Post,
-  Comment,
-} from "../../../lib/api";
 import { useAuth } from "../../../hooks/useAuth";
-import { PostCardSkeleton, CommentSkeleton, Skeleton } from "../../../components/ui/Skeleton";
+import {
+  usePost,
+  useDeletePost,
+} from "../../../hooks/queries/usePosts";
+import {
+  useComments,
+  useCreateComment,
+  useUpdateComment,
+  useDeleteComment,
+} from "../../../hooks/queries/useComments";
+import { CommentSkeleton, Skeleton } from "../../../components/ui/Skeleton";
 import { formatDateTime } from "../../../utils/formatDate";
 
 export default function PostDetailPage() {
@@ -24,125 +24,26 @@ export default function PostDetailPage() {
   const { user, login } = useAuth();
   const id = params.id as string;
 
-  const [post, setPost] = useState<Post | null>(null);
-  const [comments, setComments] = useState<Comment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [deleting, setDeleting] = useState(false);
+  const { data: post, isLoading: postLoading } = usePost(id);
+  const { data: comments = [], isLoading: commentsLoading } = useComments(id);
+  const createCommentMutation = useCreateComment(id);
+  const updateCommentMutation = useUpdateComment(id);
+  const deleteCommentMutation = useDeleteComment(id);
+  const deletePostMutation = useDeletePost();
+
   const [commentContent, setCommentContent] = useState("");
   const [commentError, setCommentError] = useState("");
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState("");
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        const [postData, commentsData] = await Promise.all([
-          getPost(id),
-          getComments(id),
-        ]);
-        setPost(postData);
-        setComments(commentsData);
-      } catch (error) {
-        console.error("데이터 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadData();
-  }, [id]);
-
-  if (loading) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Skeleton className="mb-6 h-4 w-32" />
-        <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
-          <Skeleton className="mb-4 h-8 w-3/4" />
-          <Skeleton className="mb-2 h-4 w-1/2" />
-          <Skeleton className="h-4 w-full" />
-          <Skeleton className="mt-2 h-4 w-5/6" />
-        </div>
-        <div className="rounded-lg border border-gray-200 bg-white p-6">
-          <Skeleton className="mb-4 h-6 w-24" />
-          <div className="space-y-4">
-            {[1, 2, 3].map((i) => (
-              <CommentSkeleton key={i} />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  const handleSubmitComment = async () => {
-    if (!user) {
-      login();
-      return;
-    }
-
-    // 클라이언트 측 체크 제거 - 백엔드 validation에 맡김
-    setCommentError("");
-
-    try {
-      await createComment(id, commentContent);
-      // 댓글 작성 후 댓글 목록을 다시 불러와서 user 정보를 포함한 완전한 데이터를 가져옴
-      const updatedComments = await getComments(id);
-      setComments(updatedComments);
-      setCommentContent("");
-      setCommentError("");
-    } catch (error: any) {
-      // 백엔드 validation 에러 처리 (fetchApi에서 이미 배열 처리됨)
-      const errorMessage = error.message || "댓글 작성에 실패했습니다.";
-      setCommentError(errorMessage);
-    }
-  };
-
-  const handleUpdateComment = async (commentId: string) => {
-    if (!editingCommentContent.trim()) return;
-
-    try {
-      await updateComment(id, commentId, editingCommentContent);
-      // 댓글 수정 후 댓글 목록을 다시 불러와서 user 정보를 포함한 완전한 데이터를 가져옴
-      const updatedComments = await getComments(id);
-      setComments(updatedComments);
-      setEditingCommentId(null);
-      setEditingCommentContent("");
-    } catch (error: any) {
-      alert(error.message || "댓글 수정에 실패했습니다.");
-    }
-  };
-
-  const handleDeleteComment = async (commentId: string) => {
-    if (!confirm("댓글을 삭제하시겠습니까?")) return;
-
-    try {
-      await deleteComment(id, commentId);
-      setComments(comments.filter((c) => c.id !== commentId));
-    } catch (error: any) {
-      alert(error.message || "댓글 삭제에 실패했습니다.");
-    }
-  };
-
-  const handleDeletePost = async () => {
-    if (!confirm("게시글을 삭제하시겠습니까?")) return;
-
-    try {
-      setDeleting(true);
-      await deletePost(id);
-      router.push("/board");
-    } catch (error: any) {
-      alert(error.message || "게시글 삭제에 실패했습니다.");
-      setDeleting(false);
-    }
-  };
-
+  const loading = postLoading || commentsLoading;
+  const deleting = deletePostMutation.isPending;
   const formatDate = formatDateTime;
 
   if (loading || deleting) {
     return (
       <div className="container mx-auto px-4 py-8">
-        <Skeleton className="mb-6 h-10 w-48" />
+        <Skeleton className="mb-6 h-4 w-32" />
         <div className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
           <Skeleton className="mb-4 h-8 w-3/4" />
           <Skeleton className="mb-2 h-4 w-1/2" />
@@ -169,6 +70,67 @@ export default function PostDetailPage() {
     );
   }
 
+  const handleSubmitComment = async () => {
+    if (!user) {
+      login();
+      return;
+    }
+
+    setCommentError("");
+
+    try {
+      await createCommentMutation.mutateAsync(commentContent);
+      setCommentContent("");
+      setCommentError("");
+    } catch (error: unknown) {
+      const errorMessage =
+        error instanceof Error ? error.message : "댓글 작성에 실패했습니다.";
+      setCommentError(errorMessage);
+    }
+  };
+
+  const handleUpdateComment = async (commentId: string) => {
+    if (!editingCommentContent.trim()) return;
+
+    try {
+      await updateCommentMutation.mutateAsync({
+        commentId,
+        content: editingCommentContent,
+      });
+      setEditingCommentId(null);
+      setEditingCommentContent("");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "댓글 수정에 실패했습니다.";
+      alert(message);
+    }
+  };
+
+  const handleDeleteComment = async (commentId: string) => {
+    if (!confirm("댓글을 삭제하시겠습니까?")) return;
+
+    try {
+      await deleteCommentMutation.mutateAsync(commentId);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "댓글 삭제에 실패했습니다.";
+      alert(message);
+    }
+  };
+
+  const handleDeletePost = async () => {
+    if (!confirm("게시글을 삭제하시겠습니까?")) return;
+
+    try {
+      await deletePostMutation.mutateAsync(id);
+      router.push("/board");
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "게시글 삭제에 실패했습니다.";
+      alert(message);
+    }
+  };
+
   const isAuthor = user && post.author && user.id === post.author.id;
 
   return (
@@ -182,7 +144,6 @@ export default function PostDetailPage() {
         </Link>
       </div>
 
-      {/* 게시글 영역 */}
       <article className="mb-8 rounded-lg border border-gray-200 bg-white p-6">
         <div className="mb-4 flex items-center justify-between border-b border-gray-200 pb-4">
           <div>
@@ -216,20 +177,18 @@ export default function PostDetailPage() {
         </div>
       </article>
 
-      {/* 댓글 영역 */}
       <div className="rounded-lg border border-gray-200 bg-white p-6">
         <h2 className="mb-4 text-xl font-semibold text-gray-800">
           댓글 ({comments.length})
         </h2>
 
-        {/* 댓글 작성 영역 */}
         {user ? (
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-4">
             <textarea
               value={commentContent}
               onChange={(e) => {
                 setCommentContent(e.target.value);
-                setCommentError(""); // 입력 시 에러 메시지 초기화
+                setCommentError("");
               }}
               placeholder="댓글을 입력하세요"
               rows={3}
@@ -244,7 +203,8 @@ export default function PostDetailPage() {
             )}
             <button
               onClick={handleSubmitComment}
-              className="rounded-lg bg-orange-500 px-4 py-2 text-sm text-white hover:bg-orange-600 cursor-pointer"
+              disabled={createCommentMutation.isPending}
+              className="rounded-lg bg-orange-500 px-4 py-2 text-sm text-white hover:bg-orange-600 cursor-pointer disabled:opacity-50"
             >
               댓글 작성
             </button>
@@ -263,11 +223,11 @@ export default function PostDetailPage() {
           </div>
         )}
 
-        {/* 댓글 목록 */}
         <div className="space-y-4">
           {comments.length > 0 ? (
             comments.map((comment) => {
-              const isCommentAuthor = user && comment.author && user.id === comment.author.id;
+              const isCommentAuthor =
+                user && comment.author && user.id === comment.author.id;
               const isEditing = editingCommentId === comment.id;
 
               return (

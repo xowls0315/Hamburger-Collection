@@ -1,50 +1,23 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { FaStar, FaRegStar } from "react-icons/fa";
-import { getFavorites, removeFavorite, Favorite, MenuItem } from "../../lib/api";
+import { FaRegStar } from "react-icons/fa";
 import { useAuth } from "../../hooks/useAuth";
+import { useFavorites } from "../../hooks/queries/useFavorites";
 import { MenuCardSkeleton } from "../../components/ui/Skeleton";
 import MenuCard from "../../components/ui/MenuCard";
 
 export default function FavoritesPage() {
   const router = useRouter();
   const { user, loading: authLoading } = useAuth();
-  const [favorites, setFavorites] = useState<Favorite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: favorites = [], isLoading: loading } = useFavorites(!!user);
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/");
-      return;
-    }
-
-    if (user) {
-      const loadFavorites = async () => {
-        try {
-          setLoading(true);
-          const data = await getFavorites();
-          setFavorites(data);
-        } catch (error) {
-          console.error("즐겨찾기 로딩 실패:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      loadFavorites();
     }
   }, [user, authLoading, router]);
-
-  const handleRemoveFavorite = async (menuItemId: string) => {
-    try {
-      await removeFavorite(menuItemId);
-      setFavorites(favorites.filter((fav) => fav.menuItem.id !== menuItemId));
-    } catch (error: any) {
-      alert(error.message || "즐겨찾기 삭제에 실패했습니다.");
-    }
-  };
 
   if (authLoading || loading) {
     return (

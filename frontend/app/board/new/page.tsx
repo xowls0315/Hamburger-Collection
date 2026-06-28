@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { FaLongArrowAltLeft } from "react-icons/fa";
-import { createPost } from "../../../lib/api";
+import { useCreatePost } from "../../../hooks/queries/usePosts";
 import { useAuth } from "../../../hooks/useAuth";
 import { Skeleton } from "../../../components/ui/Skeleton";
 
@@ -13,7 +13,8 @@ export default function NewPostPage() {
   const { user, login } = useAuth();
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
-  const [loading, setLoading] = useState(false);
+  const createPostMutation = useCreatePost();
+  const loading = createPostMutation.isPending;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -29,13 +30,12 @@ export default function NewPostPage() {
     }
 
     try {
-      setLoading(true);
-      const post = await createPost({ title, content });
+      const post = await createPostMutation.mutateAsync({ title, content });
       router.push(`/board/${post.id}`);
-    } catch (error: any) {
-      alert(error.message || "게시글 작성에 실패했습니다.");
-    } finally {
-      setLoading(false);
+    } catch (error: unknown) {
+      const message =
+        error instanceof Error ? error.message : "게시글 작성에 실패했습니다.";
+      alert(message);
     }
   };
 

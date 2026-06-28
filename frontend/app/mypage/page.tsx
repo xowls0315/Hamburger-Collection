@@ -6,45 +6,30 @@ import Link from "next/link";
 import Image from "next/image";
 import Skeleton from "react-loading-skeleton";
 import { useAuth } from "../../hooks/useAuth";
-import { getPosts, Post, changePassword } from "../../lib/api";
+import { usePosts } from "../../hooks/queries/usePosts";
+import { changePassword } from "../../lib/api";
 import { formatDate } from "../../utils/formatDate";
 
 export default function MyPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
-  const [myPosts, setMyPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { data: postsData, isLoading: postsLoading } = usePosts(1, 100, {
+    enabled: !!user,
+  });
+  const myPosts =
+    postsData?.posts.filter((post) => post.author?.id === user?.id) ?? [];
   const [showPasswordForm, setShowPasswordForm] = useState(false);
-  const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
   const [passwordSubmitting, setPasswordSubmitting] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const loading = postsLoading;
 
   useEffect(() => {
     if (!authLoading && !user) {
       router.push("/");
-      return;
-    }
-
-    if (user) {
-      const loadMyPosts = async () => {
-        try {
-          // 모든 게시글을 가져와서 필터링 (백엔드에 사용자별 게시글 API가 있다면 그걸 사용)
-          const data = await getPosts(1, 100);
-          const filtered = data.posts.filter(
-            (post) => post.author?.id === user.id,
-          );
-          setMyPosts(filtered);
-        } catch (error) {
-          console.error("게시글 로딩 실패:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
-
-      loadMyPosts();
     }
   }, [user, authLoading, router]);
 

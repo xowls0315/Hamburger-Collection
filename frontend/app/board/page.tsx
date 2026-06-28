@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlPencil } from "react-icons/sl";
-import { getPosts, Post } from "../../lib/api";
 import { useAuth } from "../../hooks/useAuth";
+import { usePosts } from "../../hooks/queries/usePosts";
 import { PostCardSkeleton } from "../../components/ui/Skeleton";
 import { formatDate } from "../../utils/formatDate";
 
@@ -13,28 +13,12 @@ function BoardPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(parseInt(searchParams.get("page") || "1"));
-  const [totalPages, setTotalPages] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
 
-  useEffect(() => {
-    const loadPosts = async () => {
-      try {
-        setLoading(true);
-        const data = await getPosts(page, 20);
-        setPosts(data.posts);
-        setTotalPages(data.totalPages);
-      } catch (error) {
-        console.error("게시글 로딩 실패:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadPosts();
-  }, [page]);
+  const { data, isLoading: loading } = usePosts(page, 20);
+  const posts = data?.posts ?? [];
+  const totalPages = data?.totalPages ?? 1;
 
   const handlePageChange = (newPage: number) => {
     setPage(newPage);

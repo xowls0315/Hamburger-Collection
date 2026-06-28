@@ -98,8 +98,22 @@
 - **Styling**: Tailwind CSS 4
 - **Icons**: React Icons 5.5.0
 - **Loading UI**: React Loading Skeleton 3.5.0
+- **Global State**: Zustand 5 (인증·토큰 전역 관리)
+- **Server State**: TanStack Query 5 (`@tanstack/react-query`, API 데이터 캐싱·무효화)
 - **Map**: Kakao Map JavaScript SDK
 - **배포**: Vercel
+
+#### 프론트엔드 상태관리
+
+| 종류 | 라이브러리 | 적용 범위 |
+|------|-----------|----------|
+| Global State | Zustand | 로그인 사용자, Access Token, 인증 액션 (`stores/authStore.ts`) |
+| Server State | TanStack Query | 게시글, 댓글, 브랜드, 메뉴, 즐겨찾기, 매장 검색 (`hooks/queries/`) |
+| Local State | `useState` | 검색어, 폼 입력, 댓글 작성 UI 등 컴포넌트 내부 상태 |
+| URL State | Next.js Router | 게시판 페이지, 브랜드 정렬·페이지 쿼리 (`?page=`, `?sort=`) |
+
+- 앱 루트는 `QueryProvider`로 감싸며, 마운트 시 `AuthInitializer`가 Zustand `initAuth()`를 호출합니다.
+- 로그아웃 시 `clearUserQueries()`로 즐겨찾기 등 사용자 전용 쿼리 캐시를 정리합니다.
 
 ### 백엔드
 
@@ -280,7 +294,7 @@ hamburger-collection/
 │   │   ├── favorites/        # 즐겨찾기
 │   │   ├── guide/            # 가이드 페이지
 │   │   └── mypage/           # 마이페이지
-│   ├── components/          # 컴포넌트
+│   ├── components/           # 컴포넌트
 │   │   ├── layout/           # 레이아웃 컴포넌트
 │   │   │   ├── Header.tsx
 │   │   │   ├── Sidebar.tsx
@@ -289,10 +303,20 @@ hamburger-collection/
 │   │       ├── MenuCard.tsx
 │   │       ├── NutritionTable.tsx
 │   │       └── Skeleton.tsx
-│   ├── context/              # React Context
-│   │   └── AuthContext.tsx
+│   ├── stores/               # Zustand 전역 스토어
+│   │   └── authStore.ts      # 인증·토큰 상태
+│   ├── providers/            # React Provider
+│   │   ├── QueryProvider.tsx # TanStack Query + Auth 초기화
+│   │   └── AuthInitializer.tsx
 │   ├── hooks/                # 커스텀 훅
-│   │   └── useAuth.ts
+│   │   ├── useAuth.ts        # Zustand 인증 훅
+│   │   └── queries/          # TanStack Query 훅
+│   │       ├── keys.ts
+│   │       ├── usePosts.ts
+│   │       ├── useComments.ts
+│   │       ├── useBrands.ts
+│   │       ├── useFavorites.ts
+│   │       └── useStores.ts
 │   ├── lib/                  # 라이브러리
 │   │   └── api.ts            # API 클라이언트
 │   ├── utils/                # 유틸리티 함수
@@ -424,9 +448,9 @@ ingest_logs (수집 로그)
 
 - 프로덕션 환경에서 `refreshToken` 쿠키 설정을 `sameSite: 'none'`, `secure: true`로 변경
 - CORS 설정에 `credentials: true` 및 필요한 HTTP 메서드/헤더 명시
-- `AuthContext`의 `initAuth` 로직을 개선하여 토큰 갱신을 우선 시도
+- Zustand `authStore`의 `initAuth` 로직을 개선하여 토큰 갱신을 우선 시도
 
-**참고**: `backend/src/auth/auth.controller.ts`, `frontend/app/context/AuthContext.tsx`
+**참고**: `backend/src/auth/auth.controller.ts`, `frontend/stores/authStore.ts`
 
 #### 2. 카카오 프로필 이미지 http/https 문제
 
@@ -465,10 +489,10 @@ ingest_logs (수집 로그)
 **해결**:
 
 - 401 에러 발생 시 Refresh Token으로 자동 갱신
-- `AuthContext`에서 토큰 갱신 로직 구현
-- 원래 요청 자동 재시도
+- `authStore` + `lib/api.ts`에서 토큰 갱신 및 원래 요청 자동 재시도
+- `QueryProvider` / `AuthInitializer`에서 앱 시작 시 `initAuth()` 호출
 
-**참고**: `frontend/app/context/AuthContext.tsx`, `frontend/lib/api.ts`
+**참고**: `frontend/stores/authStore.ts`, `frontend/providers/AuthInitializer.tsx`, `frontend/lib/api.ts`
 
 #### 6. Render 배포 시 nest 명령어 오류
 
@@ -515,7 +539,8 @@ ingest_logs (수집 로그)
 - ✅ **7개 브랜드 통합**: 주요 햄버거 브랜드의 메뉴 정보를 한 곳에서 제공
 - ✅ **반응형 디자인 완성**: 모바일부터 데스크탑까지 모든 환경에서 사용 가능
 - ✅ **사용자 경험 개선**: 검색, 즐겨찾기, 게시판 등 다양한 기능 제공
-- ✅ **안정적인 인증 시스템**: JWT 토큰 자동 갱신 및 크로스 도메인 쿠키 처리
+- ✅ **안정적인 인증 시스템**: Zustand 기반 JWT 토큰 자동 갱신 및 크로스 도메인 쿠키 처리
+- ✅ **효율적인 데이터 페칭**: TanStack Query로 서버 상태 캐싱·무효화, 중복 요청 방지
 - ✅ **실시간 매장 검색**: 카카오맵 연동으로 내 주변 매장을 쉽게 찾을 수 있음
 
 #### 어려웠던 점
