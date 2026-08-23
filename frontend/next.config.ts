@@ -12,6 +12,7 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "momstouch.co.kr" },
       { protocol: "https", hostname: "www.shinsegaefood.com" },
       { protocol: "https", hostname: "frankburger.co.kr" },
+      { protocol: "https", hostname: "www.kfckorea.com" },
       { protocol: "https", hostname: "kfcapi.inicis.com" },
       { protocol: "https", hostname: "k.kakaocdn.net" },
       { protocol: "http", hostname: "k.kakaocdn.net" }, // http도 허용 (카카오 API가 http로 반환할 수 있음)

@@ -44,7 +44,7 @@ function BrandPageContent() {
   const { data: menuData, isLoading: menuLoading } = useMenuItems(slug, {
     sort,
     page: 1,
-    limit: 1000,
+    limit: 100,
   });
   const loading = brandLoading || menuLoading;
 

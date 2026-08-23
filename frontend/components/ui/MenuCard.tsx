@@ -19,6 +19,9 @@ interface MenuCardProps {
 
 export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
   const kcal = menuItem.nutrition?.kcal;
+  const shouldUseNativeImage =
+    menuItem.imageUrl?.includes("momstouch.co.kr") ||
+    menuItem.imageUrl?.includes("shinsegaefood.com");
   const { user } = useAuth();
   const { data: favoriteCheck } = useFavoriteCheck(menuItem.id, !!user);
   const isFavorite = favoriteCheck?.isFavorite ?? false;
@@ -70,7 +73,7 @@ export default function MenuCard({ menuItem, brandSlug }: MenuCardProps) {
       <div className="mb-3 aspect-video w-full rounded-lg bg-gray-200 relative overflow-hidden shrink-0">
         {menuItem.imageUrl ? (
           // 맘스터치 이미지는 Next.js Image Optimization이 실패하므로 unoptimized 사용
-          menuItem.imageUrl.includes('momstouch.co.kr') ? (
+          shouldUseNativeImage ? (
             <img
               src={menuItem.imageUrl}
               alt={menuItem.name}

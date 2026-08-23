@@ -71,6 +71,10 @@ export default function MenuDetailPage() {
     );
   }
 
+  const shouldUseNativeImage =
+    menuItem.imageUrl?.includes("momstouch.co.kr") ||
+    menuItem.imageUrl?.includes("shinsegaefood.com");
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-6">
@@ -86,7 +90,7 @@ export default function MenuDetailPage() {
         <div className="rounded-lg border border-gray-200 bg-white p-4">
           <div className="aspect-square w-full rounded-lg bg-gray-200 relative overflow-hidden">
             {menuItem.imageUrl ? (
-              menuItem.imageUrl.includes("momstouch.co.kr") ? (
+              shouldUseNativeImage ? (
                 <img
                   src={menuItem.imageUrl}
                   alt={menuItem.name}
