@@ -622,6 +622,7 @@ export class MomstouchScraperService extends BaseScraperService {
 
     // 4단계: 데이터베이스에 저장
     console.log(`\n💾 데이터베이스에 저장 중...`);
+    const activeMenuNames: string[] = [];
 
     for (const targetMenu of momstouchMenus) {
       try {
@@ -654,6 +655,7 @@ export class MomstouchScraperService extends BaseScraperService {
           if (menuData.description) {
             existingMenuItem.description = menuData.description;
           }
+          existingMenuItem.isActive = true;
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -680,6 +682,7 @@ export class MomstouchScraperService extends BaseScraperService {
           }
 
           updated++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 업데이트 완료: ${targetMenu}`);
         } else {
           // 생성
@@ -712,6 +715,7 @@ export class MomstouchScraperService extends BaseScraperService {
           }
 
           created++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 생성 완료: ${targetMenu}`);
         }
       } catch (error: any) {
@@ -722,11 +726,19 @@ export class MomstouchScraperService extends BaseScraperService {
       }
     }
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      activeMenuNames,
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 수집 로그 저장
     await this.createIngestLog({
       brandId: brand.id,
       status: errors === 0 ? 'success' : 'partial',
-      changedCount: created + updated,
+      changedCount: created + updated + deactivated,
       error: errors > 0 ? JSON.stringify(errorDetails.slice(0, 10)) : undefined,
     });
 

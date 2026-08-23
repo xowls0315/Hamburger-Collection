@@ -66,27 +66,34 @@ export class BurgerKingScraperService extends BaseScraperService {
   /**
    * 메뉴가 단품인지 확인 (세트/콤보가 아닌지)
    */
-  private isSingleItem(menu: { menuNm?: string; menuComponents?: string }): boolean {
+  private isSingleItem(menu: {
+    menuNm?: string;
+    menuComponents?: string;
+  }): boolean {
     if (!menu.menuNm) return false;
-    
+
     const menuName = menu.menuNm.toLowerCase();
     const menuComponents = (menu.menuComponents || '').toLowerCase();
-    
+
     // 세트/콤보 키워드 확인
     const setKeywords = ['세트', '라지', '콤보', 'combo', 'set', 'pack', '팩'];
-    const hasSetKeyword = setKeywords.some(keyword => menuName.includes(keyword));
-    
+    const hasSetKeyword = setKeywords.some((keyword) =>
+      menuName.includes(keyword),
+    );
+
     // menuComponents에 "+"가 있으면 세트/콤보
     const hasPlusInComponents = menuComponents.includes('+');
-    
+
     // menuNm에 "+"가 있으면 세트/콤보
     const hasPlusInName = menuName.includes('+');
-    
+
     // "행)"으로 시작하면 세트
     const startsWithSet = menuName.startsWith('행)');
-    
+
     // 단품인 경우: 세트 키워드 없음, + 없음, 행)으로 시작하지 않음
-    return !hasSetKeyword && !hasPlusInComponents && !hasPlusInName && !startsWithSet;
+    return (
+      !hasSetKeyword && !hasPlusInComponents && !hasPlusInName && !startsWithSet
+    );
   }
 
   /**
@@ -115,7 +122,9 @@ export class BurgerKingScraperService extends BaseScraperService {
                 const originalNameLower = menu.menuNm.toLowerCase().trim();
                 menuCdMap.set(originalNameLower, menu.menuCd);
                 // 공백 제거한 이름으로도 매핑
-                const noSpaceName = menu.menuNm.replace(/\s+/g, '').toLowerCase();
+                const noSpaceName = menu.menuNm
+                  .replace(/\s+/g, '')
+                  .toLowerCase();
                 menuCdMap.set(noSpaceName, menu.menuCd);
                 // 정규화 후 공백 제거한 이름으로도 매핑
                 const normalizedNoSpace = normalizedName.replace(/\s+/g, '');
@@ -125,9 +134,13 @@ export class BurgerKingScraperService extends BaseScraperService {
           }
         }
       }
-      console.log(`    📋 JSON에서 ${menuCdMap.size}개의 단품 menuCd 매핑을 로드했습니다.`);
+      console.log(
+        `    📋 JSON에서 ${menuCdMap.size}개의 단품 menuCd 매핑을 로드했습니다.`,
+      );
     } catch (error) {
-      console.error(`    ⚠️ JSON 파일 로드 실패: ${error instanceof Error ? error.message : String(error)}`);
+      console.error(
+        `    ⚠️ JSON 파일 로드 실패: ${error instanceof Error ? error.message : String(error)}`,
+      );
     }
     return menuCdMap;
   }
@@ -203,7 +216,9 @@ export class BurgerKingScraperService extends BaseScraperService {
     // JSON 파일에서 menuCd 매핑 로드
     const menuCdMap = this.loadMenuCdMap();
     console.log(`📋 총 ${targetMenus.length}개의 타겟 메뉴를 처리합니다.`);
-    console.log(`📋 JSON에서 ${menuCdMap.size}개의 menuCd 매핑을 로드했습니다.`);
+    console.log(
+      `📋 JSON에서 ${menuCdMap.size}개의 menuCd 매핑을 로드했습니다.`,
+    );
 
     // 메인 페이지에서 메뉴 정보 추출
     // 버거킹은 Vue.js를 사용하므로 Puppeteer로 동적 콘텐츠를 로드해야 함
@@ -325,16 +340,23 @@ export class BurgerKingScraperService extends BaseScraperService {
             if (!menuCd) {
               for (const [key, value] of menuCdMap.entries()) {
                 const normalizedKey = this.normalizeMenuName(key);
-                const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
+                const normalizedNameNoSpace = normalizedName.replace(
+                  /\s+/g,
+                  '',
+                );
                 const normalizedKeyNoSpace = normalizedKey.replace(/\s+/g, '');
-                
+
                 if (
                   normalizedName === normalizedKey ||
                   normalizedNameNoSpace === normalizedKeyNoSpace ||
-                  (normalizedName.length >= 3 && normalizedKey.includes(normalizedName)) ||
-                  (normalizedKey.length >= 3 && normalizedName.includes(normalizedKey)) ||
-                  (normalizedNameNoSpace.length >= 3 && normalizedKeyNoSpace.includes(normalizedNameNoSpace)) ||
-                  (normalizedKeyNoSpace.length >= 3 && normalizedNameNoSpace.includes(normalizedKeyNoSpace))
+                  (normalizedName.length >= 3 &&
+                    normalizedKey.includes(normalizedName)) ||
+                  (normalizedKey.length >= 3 &&
+                    normalizedName.includes(normalizedKey)) ||
+                  (normalizedNameNoSpace.length >= 3 &&
+                    normalizedKeyNoSpace.includes(normalizedNameNoSpace)) ||
+                  (normalizedKeyNoSpace.length >= 3 &&
+                    normalizedNameNoSpace.includes(normalizedKeyNoSpace))
                 ) {
                   menuCd = value;
                   break;
@@ -359,7 +381,10 @@ export class BurgerKingScraperService extends BaseScraperService {
                 normalizedTarget,
                 targetMenu,
               ] of normalizedTargetMenus.entries()) {
-                const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
+                const normalizedNameNoSpace = normalizedName.replace(
+                  /\s+/g,
+                  '',
+                );
                 const normalizedTargetNoSpace = normalizedTarget.replace(
                   /\s+/g,
                   '',
@@ -406,7 +431,9 @@ export class BurgerKingScraperService extends BaseScraperService {
             }
           } catch (error) {
             // 개별 메뉴 카드 처리 중 에러 발생 시 계속 진행
-            console.log(`    ⚠️ 메뉴 카드 처리 중 에러: ${error instanceof Error ? error.message : String(error)}`);
+            console.log(
+              `    ⚠️ 메뉴 카드 처리 중 에러: ${error instanceof Error ? error.message : String(error)}`,
+            );
             continue;
           }
         }
@@ -432,33 +459,40 @@ export class BurgerKingScraperService extends BaseScraperService {
     );
 
     if (menusWithoutUrl.length > 0) {
-      console.log(`\n🔍 ${menusWithoutUrl.length}개의 메뉴에 대해 상세 페이지 URL을 찾는 중...`);
-      
+      console.log(
+        `\n🔍 ${menusWithoutUrl.length}개의 메뉴에 대해 상세 페이지 URL을 찾는 중...`,
+      );
+
       // JSON 파일에서 menuCd 찾기
       for (const [normalizedName, menuData] of menusWithoutUrl) {
         const menuName = menuData.originalName;
-        const menuCd = menuCdMap.get(normalizedName) || 
-                      menuCdMap.get(menuName.toLowerCase().trim()) ||
-                      menuCdMap.get(menuName.replace(/\s+/g, '').toLowerCase()) ||
-                      menuCdMap.get(this.normalizeMenuName(menuName).replace(/\s+/g, ''));
-        
+        const menuCd =
+          menuCdMap.get(normalizedName) ||
+          menuCdMap.get(menuName.toLowerCase().trim()) ||
+          menuCdMap.get(menuName.replace(/\s+/g, '').toLowerCase()) ||
+          menuCdMap.get(this.normalizeMenuName(menuName).replace(/\s+/g, ''));
+
         if (menuCd) {
           menuData.detailUrl = `https://www.burgerking.co.kr/menu/detail/${menuCd}`;
           menuData.menuId = menuCd;
           console.log(`    ✅ "${menuName}" -> ${menuData.detailUrl}`);
         } else {
-          console.log(`    ⚠️ "${menuName}" 상세 페이지 URL을 찾을 수 없음 (JSON에서 menuCd 없음)`);
+          console.log(
+            `    ⚠️ "${menuName}" 상세 페이지 URL을 찾을 수 없음 (JSON에서 menuCd 없음)`,
+          );
         }
       }
-      
+
       // 여전히 URL이 없는 메뉴들에 대해서만 Puppeteer로 찾기
       const stillWithoutUrl = Array.from(menuDataMap.entries()).filter(
         ([, data]) => !data.detailUrl,
       );
 
       if (stillWithoutUrl.length > 0) {
-        console.log(`\n🔍 ${stillWithoutUrl.length}개의 메뉴에 대해 Puppeteer로 상세 페이지 URL을 찾는 중...`);
-        
+        console.log(
+          `\n🔍 ${stillWithoutUrl.length}개의 메뉴에 대해 Puppeteer로 상세 페이지 URL을 찾는 중...`,
+        );
+
         try {
           const browser = await puppeteer.launch({
             headless: true,
@@ -484,151 +518,160 @@ export class BurgerKingScraperService extends BaseScraperService {
             // 페이지의 모든 메뉴 카드 찾기
             const allCards = await page.$$('.menu_card');
             console.log(`    📋 총 ${allCards.length}개의 메뉴 카드 발견`);
-            
+
             for (let i = 0; i < allCards.length; i++) {
               try {
                 const card = allCards[i];
-              
-              // 메뉴 이름 추출
-              const menuName = await page.evaluate((el) => {
-                const titleSpan = el.querySelector('.cont .tit span');
-                return titleSpan?.textContent?.trim() || '';
-              }, card);
-              
-              if (!menuName || this.isSetOrCombo(menuName)) {
-                continue;
-              }
-              
-              // 타겟 메뉴인지 확인 (정규화하여 비교)
-              const normalizedCardName = this.normalizeMenuName(menuName);
-              let isTargetMenu = false;
-              let matchedTargetMenu = '';
 
-              for (const [normalizedName, menuData] of stillWithoutUrl) {
-                if (normalizedName === normalizedCardName) {
-                  isTargetMenu = true;
-                  matchedTargetMenu = menuData.originalName;
-                  break;
+                // 메뉴 이름 추출
+                const menuName = await page.evaluate((el) => {
+                  const titleSpan = el.querySelector('.cont .tit span');
+                  return titleSpan?.textContent?.trim() || '';
+                }, card);
+
+                if (!menuName || this.isSetOrCombo(menuName)) {
+                  continue;
                 }
-              }
 
-              // 타겟 메뉴가 아니거나 이미 URL을 찾은 메뉴는 스킵
-              if (!isTargetMenu || menuUrlMap[matchedTargetMenu]) {
-                continue;
-              }
+                // 타겟 메뉴인지 확인 (정규화하여 비교)
+                const normalizedCardName = this.normalizeMenuName(menuName);
+                let isTargetMenu = false;
+                let matchedTargetMenu = '';
 
-              console.log(
-                `    🔍 "${matchedTargetMenu}" (원본: "${menuName}") 상세 페이지 URL 찾는 중...`,
-              );
-              
-              // 현재 URL 저장
-              const currentUrl = page.url();
-              
-              // 메뉴 카드의 버튼 클릭
-              const btn = await card.$('.btn_detail');
-              if (btn) {
-                // 버튼 클릭
-                await btn.click();
-                
-                // URL 변경 대기 (최대 3초)
-                let newUrl = currentUrl;
-                for (let attempt = 0; attempt < 15; attempt++) {
-                  await this.delay(200);
-                  newUrl = page.url();
-                  if (newUrl !== currentUrl && newUrl.includes('/menu/detail/')) {
+                for (const [normalizedName, menuData] of stillWithoutUrl) {
+                  if (normalizedName === normalizedCardName) {
+                    isTargetMenu = true;
+                    matchedTargetMenu = menuData.originalName;
                     break;
                   }
                 }
-                
-                if (
-                  newUrl !== currentUrl &&
-                  newUrl.includes('/menu/detail/')
-                ) {
-                  menuUrlMap[matchedTargetMenu] = newUrl;
-                  console.log(`    ✅ "${matchedTargetMenu}" -> ${newUrl}`);
-                  
-                  // 메인 페이지로 돌아가기
-                  await page.goto('https://www.burgerking.co.kr/menu/main', {
-                    waitUntil: 'networkidle2',
-                    timeout: 30000,
-                  });
-                  await this.delay(2000);
-                } else {
-                  // URL이 변경되지 않았으면 메인 페이지로 돌아가기
-                  if (page.url() !== 'https://www.burgerking.co.kr/menu/main') {
+
+                // 타겟 메뉴가 아니거나 이미 URL을 찾은 메뉴는 스킵
+                if (!isTargetMenu || menuUrlMap[matchedTargetMenu]) {
+                  continue;
+                }
+
+                console.log(
+                  `    🔍 "${matchedTargetMenu}" (원본: "${menuName}") 상세 페이지 URL 찾는 중...`,
+                );
+
+                // 현재 URL 저장
+                const currentUrl = page.url();
+
+                // 메뉴 카드의 버튼 클릭
+                const btn = await card.$('.btn_detail');
+                if (btn) {
+                  // 버튼 클릭
+                  await btn.click();
+
+                  // URL 변경 대기 (최대 3초)
+                  let newUrl = currentUrl;
+                  for (let attempt = 0; attempt < 15; attempt++) {
+                    await this.delay(200);
+                    newUrl = page.url();
+                    if (
+                      newUrl !== currentUrl &&
+                      newUrl.includes('/menu/detail/')
+                    ) {
+                      break;
+                    }
+                  }
+
+                  if (
+                    newUrl !== currentUrl &&
+                    newUrl.includes('/menu/detail/')
+                  ) {
+                    menuUrlMap[matchedTargetMenu] = newUrl;
+                    console.log(`    ✅ "${matchedTargetMenu}" -> ${newUrl}`);
+
+                    // 메인 페이지로 돌아가기
                     await page.goto('https://www.burgerking.co.kr/menu/main', {
                       waitUntil: 'networkidle2',
                       timeout: 30000,
                     });
                     await this.delay(2000);
+                  } else {
+                    // URL이 변경되지 않았으면 메인 페이지로 돌아가기
+                    if (
+                      page.url() !== 'https://www.burgerking.co.kr/menu/main'
+                    ) {
+                      await page.goto(
+                        'https://www.burgerking.co.kr/menu/main',
+                        {
+                          waitUntil: 'networkidle2',
+                          timeout: 30000,
+                        },
+                      );
+                      await this.delay(2000);
+                    }
+                  }
+                }
+              } catch {
+                // 에러 발생 시 메인 페이지로 돌아가기
+                if (page.url() !== 'https://www.burgerking.co.kr/menu/main') {
+                  await page
+                    .goto('https://www.burgerking.co.kr/menu/main', {
+                      waitUntil: 'networkidle2',
+                      timeout: 30000,
+                    })
+                    .catch(() => {});
+                  await this.delay(2000);
+                }
+                continue;
+              }
+            }
+
+            // 추출한 URL 매핑을 menuDataMap에 적용
+            for (const [normalizedName, menuData] of stillWithoutUrl) {
+              const menuName = menuData.originalName;
+
+              // 정확히 일치하는 메뉴 이름 찾기
+              let foundUrl = menuUrlMap[menuName];
+
+              // 정확히 일치하지 않으면 부분 일치 검색
+              if (!foundUrl) {
+                for (const [cardMenuName, url] of Object.entries(menuUrlMap)) {
+                  const normalizedCardName =
+                    this.normalizeMenuName(cardMenuName);
+                  const normalizedTarget = this.normalizeMenuName(menuName);
+
+                  if (
+                    normalizedCardName === normalizedTarget ||
+                    normalizedCardName.includes(normalizedTarget) ||
+                    normalizedTarget.includes(normalizedCardName)
+                  ) {
+                    foundUrl = url;
+                    break;
                   }
                 }
               }
-            } catch {
-              // 에러 발생 시 메인 페이지로 돌아가기
-              if (page.url() !== 'https://www.burgerking.co.kr/menu/main') {
-                await page
-                  .goto('https://www.burgerking.co.kr/menu/main', {
-                    waitUntil: 'networkidle2',
-                    timeout: 30000,
-                  })
-                  .catch(() => {});
-                await this.delay(2000);
-              }
-              continue;
-            }
-          }
 
-          // 추출한 URL 매핑을 menuDataMap에 적용
-          for (const [normalizedName, menuData] of stillWithoutUrl) {
-            const menuName = menuData.originalName;
-            
-            // 정확히 일치하는 메뉴 이름 찾기
-            let foundUrl = menuUrlMap[menuName];
-            
-            // 정확히 일치하지 않으면 부분 일치 검색
-            if (!foundUrl) {
-              for (const [cardMenuName, url] of Object.entries(menuUrlMap)) {
-                const normalizedCardName = this.normalizeMenuName(cardMenuName);
-                const normalizedTarget = this.normalizeMenuName(menuName);
-                
-                if (
-                  normalizedCardName === normalizedTarget ||
-                  normalizedCardName.includes(normalizedTarget) ||
-                  normalizedTarget.includes(normalizedCardName)
-                ) {
-                  foundUrl = url;
-                  break;
+              if (foundUrl) {
+                menuData.detailUrl = foundUrl;
+                const menuId = foundUrl.match(/\/menu\/detail\/(\d+)/)?.[1];
+                if (menuId) {
+                  menuData.menuId = menuId;
                 }
+                console.log(
+                  `    ✅ "${menuName}" 상세 페이지 URL 발견: ${foundUrl}`,
+                );
+              } else {
+                console.log(
+                  `    ⚠️ "${menuName}" 상세 페이지 URL을 찾을 수 없음`,
+                );
               }
             }
-            
-            if (foundUrl) {
-              menuData.detailUrl = foundUrl;
-              const menuId = foundUrl.match(/\/menu\/detail\/(\d+)/)?.[1];
-              if (menuId) {
-                menuData.menuId = menuId;
-              }
-              console.log(
-                `    ✅ "${menuName}" 상세 페이지 URL 발견: ${foundUrl}`,
-              );
-            } else {
-              console.log(
-                `    ⚠️ "${menuName}" 상세 페이지 URL을 찾을 수 없음`,
-              );
-            }
-          }
 
-          await page.close();
-        } finally {
-          await browser.close();
-        }
+            await page.close();
+          } finally {
+            await browser.close();
+          }
         } catch (error: unknown) {
-        console.log(
-          `  ⚠️ Puppeteer로 상세 페이지 URL 찾기 실패: ${error instanceof Error ? error.message : String(error)}`,
-        );
+          console.log(
+            `  ⚠️ Puppeteer로 상세 페이지 URL 찾기 실패: ${error instanceof Error ? error.message : String(error)}`,
+          );
+        }
       }
-    }
     }
 
     // description 추출 함수 (Puppeteer 사용 - Vue.js SPA이므로)
@@ -732,6 +775,7 @@ export class BurgerKingScraperService extends BaseScraperService {
           if (description) {
             menuItem.description = description;
           }
+          menuItem.isActive = true;
           await this.menuItemsRepository.save(menuItem);
           updated++;
           console.log(`  ✅ 업데이트: ${targetMenu}`);
@@ -765,6 +809,14 @@ export class BurgerKingScraperService extends BaseScraperService {
       `\n📊 메뉴 처리 완료: ${created}개 생성, ${updated}개 업데이트, ${errors}개 실패`,
     );
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      Array.from(savedMenuItems.keys()),
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 영양성분 스크래핑
     console.log(`\n🥗 영양성분 데이터 수집 시작...`);
     const nutritionResult = await this.scrapeNutritionData(
@@ -779,7 +831,7 @@ export class BurgerKingScraperService extends BaseScraperService {
         errors === 0 && nutritionResult.errors === 0
           ? 'success'
           : 'partial_success',
-      changedCount: created + updated + nutritionResult.saved,
+      changedCount: created + updated + nutritionResult.saved + deactivated,
       error:
         errors > 0 || nutritionResult.errors > 0
           ? `${errorDetails.join('; ')}; ${nutritionResult.errorDetails.join('; ')}`
@@ -825,7 +877,9 @@ export class BurgerKingScraperService extends BaseScraperService {
 
         await this.delay(1000); // 서버 부하 방지
 
-        console.log(`\n  📄 영양성분 추출 중: ${menuName} (${menuItem.detailUrl})`);
+        console.log(
+          `\n  📄 영양성분 추출 중: ${menuName} (${menuItem.detailUrl})`,
+        );
 
         // Puppeteer로 상세 페이지 접속 및 모달 열기
         const browser = await puppeteer.launch({
@@ -855,7 +909,7 @@ export class BurgerKingScraperService extends BaseScraperService {
 
           // 영양성분 버튼 찾기 및 클릭
           let modalOpened = false;
-          
+
           // 방법 1: .btn_info_link 클래스로 찾기
           try {
             await page.waitForSelector('.btn_info_link', { timeout: 5000 });
@@ -865,9 +919,7 @@ export class BurgerKingScraperService extends BaseScraperService {
               const btnText = await page.evaluate((el) => {
                 const span = el.querySelector('span');
                 return (
-                  span?.textContent?.trim() ||
-                  el.textContent?.trim() ||
-                  ''
+                  span?.textContent?.trim() || el.textContent?.trim() || ''
                 );
               }, btn);
 
@@ -888,7 +940,7 @@ export class BurgerKingScraperService extends BaseScraperService {
           } catch {
             // .btn_info_link를 찾을 수 없으면 다른 방법 시도
           }
-          
+
           // 방법 2: 모든 버튼에서 찾기
           if (!modalOpened) {
             const modalOpenedResult = await page.evaluate(() => {
@@ -950,7 +1002,10 @@ export class BurgerKingScraperService extends BaseScraperService {
             }
 
             if (!nutritionTable) {
-              return { data: null, debug: { error: '영양성분 테이블을 찾을 수 없음' } };
+              return {
+                data: null,
+                debug: { error: '영양성분 테이블을 찾을 수 없음' },
+              };
             }
 
             // 헤더에서 컬럼 인덱스 찾기
@@ -984,14 +1039,33 @@ export class BurgerKingScraperService extends BaseScraperService {
             // 메뉴 이름과 일치하는 행 찾기 (단품 버거만)
             const tbody = nutritionTable.querySelector('tbody');
             if (!tbody) {
-              return { data: null, debug: { error: '테이블 tbody를 찾을 수 없음' } };
+              return {
+                data: null,
+                debug: { error: '테이블 tbody를 찾을 수 없음' },
+              };
             }
 
             const rows = tbody.querySelectorAll('tr');
-            
+
             // 제외할 키워드 (세트, 팩 등)
-            const excludeKeywords = ['세트', '팩', '세트팩', '콤보', 'combo', 'set', 'pack', '라지', 'large', '프렌치프라이', '프라이', '코카콜라', '콜라', '사이드', '음료'];
-            
+            const excludeKeywords = [
+              '세트',
+              '팩',
+              '세트팩',
+              '콤보',
+              'combo',
+              'set',
+              'pack',
+              '라지',
+              'large',
+              '프렌치프라이',
+              '프라이',
+              '코카콜라',
+              '콜라',
+              '사이드',
+              '음료',
+            ];
+
             // 정규화 함수 (normalizeMenuName과 동일한 로직)
             const normalizeName = (name: string): string => {
               return name
@@ -1010,26 +1084,40 @@ export class BurgerKingScraperService extends BaseScraperService {
                 .trim()
                 .toLowerCase();
             };
-            
+
             // 정규화된 메뉴 이름 준비
             const normalizedMenuName = normalizeName(targetMenuName);
             const menuNameNoSpace = normalizedMenuName.replace(/\s+/g, '');
-            
+
             // 모든 제품명 수집 (디버깅용)
             const allProductNames: string[] = [];
-            const allRowsInfo: Array<{ name: string; isExcluded: boolean; reason?: string }> = [];
-            let bestMatch: { row: Element; score: number; productName: string } | null = null;
-            
+            const allRowsInfo: Array<{
+              name: string;
+              isExcluded: boolean;
+              reason?: string;
+            }> = [];
+            let bestMatch: {
+              row: Element;
+              score: number;
+              productName: string;
+            } | null = null;
+
             for (const row of rows) {
               // 메뉴 이름은 <th scope="row">에 있음
               const menuTh = row.querySelector('th[scope="row"]');
               if (!menuTh) {
                 // th가 없으면 다른 방법으로 제품명 찾기 시도
-                const firstCell = row.querySelector('td:first-child, th:first-child');
+                const firstCell = row.querySelector(
+                  'td:first-child, th:first-child',
+                );
                 if (!firstCell) continue;
                 const productName = firstCell.textContent?.trim() || '';
                 if (productName) {
-                  allRowsInfo.push({ name: productName, isExcluded: true, reason: 'th[scope="row"] 없음' });
+                  allRowsInfo.push({
+                    name: productName,
+                    isExcluded: true,
+                    reason: 'th[scope="row"] 없음',
+                  });
                 }
                 continue;
               }
@@ -1038,38 +1126,54 @@ export class BurgerKingScraperService extends BaseScraperService {
               const cells = row.querySelectorAll('td');
 
               if (cells.length === 0) {
-                allRowsInfo.push({ name: productName, isExcluded: true, reason: '데이터 셀 없음' });
+                allRowsInfo.push({
+                  name: productName,
+                  isExcluded: true,
+                  reason: '데이터 셀 없음',
+                });
                 continue;
               }
 
               // 세트, 팩 등이 포함된 행은 제외
               const productNameLower = productName.toLowerCase();
-              const hasExcludeKeyword = excludeKeywords.some(keyword => 
-                productNameLower.includes(keyword.toLowerCase())
+              const hasExcludeKeyword = excludeKeywords.some((keyword) =>
+                productNameLower.includes(keyword.toLowerCase()),
               );
-              
+
               // "+" 기호가 있으면 세트/콤보
-              const hasPlus = productName.includes('+') || productName.includes('＋');
-              
+              const hasPlus =
+                productName.includes('+') || productName.includes('＋');
+
               // "행)"으로 시작하면 세트
               const startsWithSet = productName.startsWith('행)');
-              
+
               if (hasExcludeKeyword || hasPlus || startsWithSet) {
-                const reason = hasExcludeKeyword ? '제외 키워드 포함' : hasPlus ? '플러스 기호 포함' : '행)으로 시작';
-                allRowsInfo.push({ name: productName, isExcluded: true, reason });
+                const reason = hasExcludeKeyword
+                  ? '제외 키워드 포함'
+                  : hasPlus
+                    ? '플러스 기호 포함'
+                    : '행)으로 시작';
+                allRowsInfo.push({
+                  name: productName,
+                  isExcluded: true,
+                  reason,
+                });
                 continue; // 세트/팩 메뉴는 건너뛰기
               }
-              
+
               // 단품으로 판단
               allProductNames.push(productName);
               allRowsInfo.push({ name: productName, isExcluded: false });
 
               // 메뉴 이름 매칭 - 정규화된 이름으로 비교
               const normalizedProductName = normalizeName(productName);
-              const productNameNoSpace = normalizedProductName.replace(/\s+/g, '');
+              const productNameNoSpace = normalizedProductName.replace(
+                /\s+/g,
+                '',
+              );
 
               let matchScore = 0;
-              
+
               // 1. 정확한 매칭 (가장 높은 우선순위)
               if (normalizedProductName === normalizedMenuName) {
                 matchScore = 100;
@@ -1077,29 +1181,50 @@ export class BurgerKingScraperService extends BaseScraperService {
                 matchScore = 95;
               } else if (productName === targetMenuName) {
                 matchScore = 90;
-              } 
+              }
               // 2. 제품명이 메뉴명으로 시작하는 경우
-              else if (normalizedProductName.startsWith(normalizedMenuName) && normalizedMenuName.length >= 3) {
+              else if (
+                normalizedProductName.startsWith(normalizedMenuName) &&
+                normalizedMenuName.length >= 3
+              ) {
                 matchScore = 80;
-              } else if (productNameNoSpace.startsWith(menuNameNoSpace) && menuNameNoSpace.length >= 3) {
+              } else if (
+                productNameNoSpace.startsWith(menuNameNoSpace) &&
+                menuNameNoSpace.length >= 3
+              ) {
                 matchScore = 75;
               }
               // 3. 메뉴명이 제품명으로 시작하는 경우 (단품 버거인 경우)
-              else if (normalizedMenuName.startsWith(normalizedProductName) && normalizedProductName.length >= 3) {
+              else if (
+                normalizedMenuName.startsWith(normalizedProductName) &&
+                normalizedProductName.length >= 3
+              ) {
                 matchScore = 70;
-              } else if (menuNameNoSpace.startsWith(productNameNoSpace) && productNameNoSpace.length >= 3) {
+              } else if (
+                menuNameNoSpace.startsWith(productNameNoSpace) &&
+                productNameNoSpace.length >= 3
+              ) {
                 matchScore = 65;
               }
               // 4. 양방향 포함 관계 (단품 버거인 경우만, 최소 3글자 이상)
-              else if (normalizedProductName.includes(normalizedMenuName) && normalizedMenuName.length >= 3) {
+              else if (
+                normalizedProductName.includes(normalizedMenuName) &&
+                normalizedMenuName.length >= 3
+              ) {
                 matchScore = 60;
-              } else if (normalizedMenuName.includes(normalizedProductName) && normalizedProductName.length >= 3) {
+              } else if (
+                normalizedMenuName.includes(normalizedProductName) &&
+                normalizedProductName.length >= 3
+              ) {
                 matchScore = 55;
               }
               // 5. 부분 일치 (더 관대한 매칭)
               else {
                 // 공통 부분 문자열 찾기
-                const commonLength = Math.min(normalizedProductName.length, normalizedMenuName.length);
+                const commonLength = Math.min(
+                  normalizedProductName.length,
+                  normalizedMenuName.length,
+                );
                 let commonChars = 0;
                 for (let i = 0; i < commonLength; i++) {
                   if (normalizedProductName[i] === normalizedMenuName[i]) {
@@ -1109,7 +1234,9 @@ export class BurgerKingScraperService extends BaseScraperService {
                   }
                 }
                 // 공통 부분이 전체의 50% 이상이면 매칭
-                if (commonChars >= Math.max(3, normalizedMenuName.length * 0.5)) {
+                if (
+                  commonChars >= Math.max(3, normalizedMenuName.length * 0.5)
+                ) {
                   matchScore = 50;
                 }
               }
@@ -1133,7 +1260,7 @@ export class BurgerKingScraperService extends BaseScraperService {
             if (bestMatch && bestMatch.score >= 50) {
               debugInfo.matchedProductName = bestMatch.productName;
               debugInfo.matchScore = bestMatch.score;
-              
+
               const row = bestMatch.row;
               const cells = row.querySelectorAll('td');
 
@@ -1216,10 +1343,7 @@ export class BurgerKingScraperService extends BaseScraperService {
                 headerMap['saturatedFat'] >= 0
                   ? headerMap['saturatedFat']
                   : 5;
-              if (
-                cells.length > saturatedFatIndex &&
-                saturatedFatIndex >= 0
-              ) {
+              if (cells.length > saturatedFatIndex && saturatedFatIndex >= 0) {
                 const valueText =
                   cells[saturatedFatIndex].textContent?.trim() || '';
                 const saturatedFatValue = parseNumber(valueText);
@@ -1238,21 +1362,40 @@ export class BurgerKingScraperService extends BaseScraperService {
           // 디버그 정보 출력
           if (nutritionResult.debug) {
             if (nutritionResult.debug.matchedProductName) {
-              console.log(`    🔍 매칭 성공: "${menuName}" -> "${nutritionResult.debug.matchedProductName}" (점수: ${nutritionResult.debug.matchScore})`);
+              console.log(
+                `    🔍 매칭 성공: "${menuName}" -> "${nutritionResult.debug.matchedProductName}" (점수: ${nutritionResult.debug.matchScore})`,
+              );
             } else {
               console.log(`    ⚠️ 매칭 실패: "${menuName}"`);
-              console.log(`       정규화된 메뉴명: "${nutritionResult.debug.normalizedMenuName}"`);
-              console.log(`       테이블 총 행 수: ${nutritionResult.debug.totalRows || 0}`);
-              if (nutritionResult.debug.allProductNames && nutritionResult.debug.allProductNames.length > 0) {
-                console.log(`       테이블의 단품 제품명 (${nutritionResult.debug.allProductNames.length}개):`, nutritionResult.debug.allProductNames);
+              console.log(
+                `       정규화된 메뉴명: "${nutritionResult.debug.normalizedMenuName}"`,
+              );
+              console.log(
+                `       테이블 총 행 수: ${nutritionResult.debug.totalRows || 0}`,
+              );
+              if (
+                nutritionResult.debug.allProductNames &&
+                nutritionResult.debug.allProductNames.length > 0
+              ) {
+                console.log(
+                  `       테이블의 단품 제품명 (${nutritionResult.debug.allProductNames.length}개):`,
+                  nutritionResult.debug.allProductNames,
+                );
               } else {
                 console.log(`       테이블의 단품 제품명: 없음`);
               }
-              if (nutritionResult.debug.allRowsInfo && nutritionResult.debug.allRowsInfo.length > 0) {
+              if (
+                nutritionResult.debug.allRowsInfo &&
+                nutritionResult.debug.allRowsInfo.length > 0
+              ) {
                 console.log(`       테이블의 모든 행 정보 (최대 10개):`);
-                nutritionResult.debug.allRowsInfo.slice(0, 10).forEach((rowInfo: any) => {
-                  console.log(`         - "${rowInfo.name}" ${rowInfo.isExcluded ? `(제외: ${rowInfo.reason})` : '(단품)'}`);
-                });
+                nutritionResult.debug.allRowsInfo
+                  .slice(0, 10)
+                  .forEach((rowInfo: any) => {
+                    console.log(
+                      `         - "${rowInfo.name}" ${rowInfo.isExcluded ? `(제외: ${rowInfo.reason})` : '(단품)'}`,
+                    );
+                  });
               }
               if (nutritionResult.debug.error) {
                 console.log(`       오류: ${nutritionResult.debug.error}`);

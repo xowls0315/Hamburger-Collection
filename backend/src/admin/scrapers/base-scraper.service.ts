@@ -1,4 +1,4 @@
-import { Repository } from 'typeorm';
+import { In, Not, Repository } from 'typeorm';
 import { IngestLog } from '../entities/ingest-log.entity';
 import { MenuItem } from '../../menu-items/entities/menu-item.entity';
 import { Nutrition } from '../../nutrition/entities/nutrition.entity';
@@ -22,5 +22,28 @@ export abstract class BaseScraperService {
 
   protected delay(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  protected async deactivateStaleMenuItems(
+    brandId: string,
+    activeMenuNames: string[],
+    category = 'burger',
+  ): Promise<number> {
+    const uniqueActiveMenuNames = [...new Set(activeMenuNames)];
+    if (uniqueActiveMenuNames.length === 0) {
+      return 0;
+    }
+
+    const result = await this.menuItemsRepository.update(
+      {
+        brandId,
+        category,
+        isActive: true,
+        name: Not(In(uniqueActiveMenuNames)),
+      },
+      { isActive: false },
+    );
+
+    return result.affected ?? 0;
   }
 }

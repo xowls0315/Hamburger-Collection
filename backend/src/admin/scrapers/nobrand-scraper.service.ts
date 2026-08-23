@@ -6,7 +6,8 @@ import { MenuItem } from '../../menu-items/entities/menu-item.entity';
 import { Nutrition } from '../../nutrition/entities/nutrition.entity';
 import { BrandsService } from '../../brands/brands.service';
 import { BaseScraperService } from './base-scraper.service';
-import * as puppeteer from 'puppeteer';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 @Injectable()
 export class NobrandScraperService extends BaseScraperService {
@@ -27,6 +28,101 @@ export class NobrandScraperService extends BaseScraperService {
    */
   private normalizeMenuName(name: string): string {
     return name.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private cleanMenuName(name: string): string {
+    const $ = cheerio.load(name.replace(/<br\s*\/?>/gi, '\n'));
+    const text = $.root().text();
+    const firstLine = text
+      .split('\n')
+      .map((line) => line.replace(/\s+/g, ' ').trim())
+      .find(Boolean);
+
+    return firstLine || text.replace(/\s+/g, ' ').trim();
+  }
+
+  private cleanDescription(description?: string): string | undefined {
+    if (!description) {
+      return undefined;
+    }
+
+    const $ = cheerio.load(description.replace(/<br\s*\/?>/gi, ' '));
+    const text = $.root().text().replace(/\s+/g, ' ').trim();
+    return text || undefined;
+  }
+
+  private toNobrandImageUrl(src?: string): string | undefined {
+    if (!src) {
+      return undefined;
+    }
+
+    if (src.startsWith('http')) {
+      return src;
+    }
+    if (src.startsWith('//')) {
+      return `https:${src}`;
+    }
+    if (src.startsWith('/')) {
+      return `https://www.shinsegaefood.com${src}`;
+    }
+
+    return `https://www.shinsegaefood.com/uimages/${src}`;
+  }
+
+  private async fetchCurrentBurgerMenus(): Promise<
+    Array<{
+      name: string;
+      imageUrl?: string;
+      detailUrl: string;
+      description?: string;
+    }>
+  > {
+    const response = await axios.get<string>(
+      'https://www.shinsegaefood.com/nobrandburger/index.sf',
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        timeout: 30000,
+      },
+    );
+    const $ = cheerio.load(response.data);
+    const results: Array<{
+      name: string;
+      imageUrl?: string;
+      detailUrl: string;
+      description?: string;
+    }> = [];
+    const seen = new Set<string>();
+
+    ['#cate_218', '#cate_246'].forEach((selector) => {
+      $(`${selector} li.menu_item`).each((_, item) => {
+        const $item = $(item);
+        const $button = $item.find('button.menu_anch').first();
+        const rawName =
+          $button.attr('data-name') || $item.find('em.menu_name').html() || '';
+        const name = this.cleanMenuName(rawName);
+
+        if (!name || seen.has(this.normalizeMenuName(name))) {
+          return;
+        }
+
+        const imageUrl = this.toNobrandImageUrl(
+          $item.find('div.menu_img img').first().attr('src') ||
+            $button.attr('data-img'),
+        );
+        results.push({
+          name,
+          imageUrl,
+          detailUrl: 'https://www.shinsegaefood.com/nobrandburger/index.sf#none',
+          description: this.cleanDescription($button.attr('data-story')),
+        });
+        seen.add(this.normalizeMenuName(name));
+      });
+    });
+
+    return results;
   }
 
   /**
@@ -53,256 +149,29 @@ export class NobrandScraperService extends BaseScraperService {
     let errors = 0;
     const errorDetails: string[] = [];
 
-    // 노브랜드버거 메뉴 목록 (사용자가 제공한 23개)
-    const nobrandMenus = [
-      'NBB 어메이징 감바스 새우',
-      'NBB 어메이징 더블',
-      'NBB 어메이징 더블 업',
-      '고스트페퍼 살사 더블',
-      '고스트페퍼 살사 치킨',
-      '골든 카츠',
-      '골든 모짜카츠',
-      '클럽 샌드위치 버거',
-      '통마늘 베이컨',
-      '치즈',
-      '시그니처',
-      '더블치즈 베이컨 시그니처',
-      '메가바이트',
-      '그릴드 불고기',
-      '더블 그릴드 불고기',
-      '트리플 베이컨',
-      '미트 마니아',
-      '오리지널',
-      '갈릭앤갈릭',
-      '오리지널 새우',
-      '비스크 치즈 새우',
-      '코울슬로 치킨',
-      '치폴레 핫 치킨',
-    ];
-
-    console.log(`📋 총 ${nobrandMenus.length}개의 메뉴를 처리합니다.`);
-
-    // Puppeteer로 메인 페이지에서 메뉴 정보 추출
     const menuDataMap = new Map<
       string,
       { imageUrl?: string; detailUrl?: string; description?: string }
     >();
+    const nobrandMenus: string[] = [];
 
     try {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+      console.log(`\n🌐 노브랜드버거 홈페이지 메뉴 수집 중...`);
+      const currentMenus = await this.fetchCurrentBurgerMenus();
 
-      try {
-        const page = await browser.newPage();
-        await page.setUserAgent(
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      for (const menu of currentMenus) {
+        nobrandMenus.push(menu.name);
+        menuDataMap.set(menu.name, {
+          imageUrl: menu.imageUrl,
+          detailUrl: menu.detailUrl,
+          description: menu.description,
+        });
+        console.log(
+          `  ✅ 발견: "${menu.name}"${menu.imageUrl ? ` - 이미지: ${menu.imageUrl.substring(0, 60)}...` : ''}${menu.description ? ` - description: ${menu.description.substring(0, 40)}...` : ''}`,
         );
-
-        // 노브랜드버거 홈페이지로 이동
-        console.log(`\n🌐 노브랜드버거 홈페이지 접속 중...`);
-        await page.goto(
-          'https://www.shinsegaefood.com/nobrandburger/index.sf#none',
-          {
-            waitUntil: 'networkidle2',
-            timeout: 30000,
-          },
-        );
-
-        // 페이지 로드 대기
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        // "View All" 버튼 클릭
-        console.log(`\n🔍 "View All" 버튼 클릭 중...`);
-        try {
-          await page.waitForSelector('button.togArea_btn', { timeout: 10000 });
-          await page.click('button.togArea_btn');
-          console.log(`  ✅ "View All" 버튼 클릭 성공`);
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-        } catch (error: any) {
-          console.log(`  ⚠️ "View All" 버튼 클릭 실패: ${error.message}`);
-        }
-
-        // 메뉴 목록에서 각 메뉴 정보 추출 (cate_218, cate_246)
-        console.log(`\n🔍 메뉴 목록에서 정보 추출 중...`);
-        const menuItems = await page.evaluate((targetMenus) => {
-          const results: Array<{
-            name: string;
-            imageUrl?: string;
-            description?: string;
-          }> = [];
-
-          // cate_218과 cate_246에서 메뉴 추출
-          const categories = ['cate_218', 'cate_246'];
-          const normalizeName = (name: string): string => {
-            return name.replace(/\s+/g, ' ').trim().toLowerCase();
-          };
-
-          categories.forEach((categoryId) => {
-            const categoryDiv = document.getElementById(categoryId);
-            if (!categoryDiv) return;
-
-            const menuItems = categoryDiv.querySelectorAll('li.menu_item');
-            menuItems.forEach((item) => {
-              const menuNameEl = item.querySelector('em.menu_name');
-              const menuName = menuNameEl?.textContent?.trim() || '';
-
-              if (!menuName) return;
-
-              // 원본 메뉴 이름에서 한글 부분만 추출 (영문 제거)
-              const originalName = menuName.split('\n')[0].trim();
-              const normalizedMenuName = normalizeName(originalName);
-
-              // 타겟 메뉴 목록과 매칭 (모든 메뉴를 수집하되, 매칭 여부만 확인)
-              let matched = false;
-              for (const target of targetMenus) {
-                const normalizedTarget = normalizeName(target);
-                
-                // 정확히 일치하거나, 원본 이름이 타겟을 포함하거나, 타겟이 원본 이름을 포함하는 경우
-                if (
-                  normalizedMenuName === normalizedTarget ||
-                  (normalizedMenuName.includes(normalizedTarget) && normalizedTarget.length >= 5) ||
-                  (normalizedTarget.includes(normalizedMenuName) && normalizedMenuName.length >= 5)
-                ) {
-                  matched = true;
-                  break;
-                }
-              }
-
-              if (matched) {
-                // 이미지 URL 추출
-                const imgEl = item.querySelector('div.menu_img img');
-                let imageUrl = '';
-                if (imgEl) {
-                  const src = imgEl.getAttribute('src') || '';
-                  if (src) {
-                    if (src.startsWith('//')) {
-                      imageUrl = `https:${src}`;
-                    } else if (src.startsWith('/')) {
-                      imageUrl = `https://www.shinsegaefood.com${src}`;
-                    } else if (!src.startsWith('http')) {
-                      imageUrl = `https://www.shinsegaefood.com/${src}`;
-                    } else {
-                      imageUrl = src;
-                    }
-                  }
-                }
-
-                // description 추출 (버튼의 data-story 속성에서)
-                let description = '';
-                const buttonEl = item.querySelector('button.menu_anch');
-                if (buttonEl) {
-                  const dataStory = buttonEl.getAttribute('data-story') || '';
-                  if (dataStory) {
-                    // HTML 엔티티 디코딩
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = dataStory;
-                    // HTML 태그 제거하고 텍스트만 추출
-                    description = tempDiv.textContent || tempDiv.innerText || '';
-                    // 여러 공백을 하나로 정리
-                    description = description.replace(/\s+/g, ' ').trim();
-                  }
-                }
-
-                results.push({
-                  name: menuName, // 전체 이름 저장 (나중에 매칭할 때 사용)
-                  imageUrl: imageUrl || undefined,
-                  description: description || undefined,
-                });
-              }
-            });
-          });
-
-          return results;
-        }, nobrandMenus);
-
-        console.log(`  ✅ ${menuItems.length}개의 메뉴 정보 발견`);
-
-        // 메뉴 데이터 맵에 저장 (각 타겟 메뉴에 대해 가장 정확한 스크랩된 메뉴를 찾음)
-        // 이렇게 하면 같은 스크랩된 메뉴가 여러 타겟에 매칭되는 것을 방지할 수 있음
-        for (const targetMenu of nobrandMenus) {
-          let bestMatch: {
-            name: string;
-            imageUrl?: string;
-            description?: string;
-          } | null = null;
-          let bestScore = 0;
-          const normalizedTarget = this.normalizeMenuName(targetMenu);
-
-          for (const menuItem of menuItems) {
-            // 원본 메뉴 이름에서 한글 부분만 추출 (영문 제거)
-            const originalName = menuItem.name.split('\n')[0].trim();
-            const normalizedMenuName = this.normalizeMenuName(originalName);
-            let score = 0;
-
-            // 1. 정확히 일치 (최고 점수) - 즉시 매칭
-            if (normalizedMenuName === normalizedTarget) {
-              bestMatch = menuItem;
-              bestScore = 100;
-              break;
-            }
-
-            // 2. 원본 이름이 타겟을 완전히 포함하는 경우 (타겟이 최소 5글자 이상)
-            if (
-              normalizedMenuName.includes(normalizedTarget) &&
-              normalizedTarget.length >= 5
-            ) {
-              score = (normalizedTarget.length / normalizedMenuName.length) * 95;
-            }
-            // 3. 타겟이 원본 이름을 완전히 포함하는 경우 (원본이 최소 5글자 이상)
-            else if (
-              normalizedTarget.includes(normalizedMenuName) &&
-              normalizedMenuName.length >= 5
-            ) {
-              score = (normalizedMenuName.length / normalizedTarget.length) * 95;
-            }
-
-            // 4. 키워드 매칭 (공통 단어가 많을수록 높은 점수)
-            const targetWords = normalizedTarget.split(/\s+/).filter((w) => w.length > 1);
-            const menuWords = normalizedMenuName.split(/\s+/).filter((w) => w.length > 1);
-            const commonWords = targetWords.filter((w) => menuWords.includes(w));
-            if (commonWords.length > 0) {
-              const keywordScore =
-                (commonWords.length / Math.max(targetWords.length, menuWords.length)) * 85;
-              if (keywordScore > score) {
-                score = keywordScore;
-              }
-            }
-
-            // 최고 점수 업데이트 (75점 이상만 허용)
-            // 더 높은 점수이거나, 같은 점수면 원본 이름이 더 긴 것을 우선 (더 정확한 매칭)
-            if (score >= 75) {
-              if (
-                score > bestScore ||
-                (score === bestScore && originalName.length > (bestMatch?.name.split('\n')[0].trim().length || 0))
-              ) {
-                bestMatch = menuItem;
-                bestScore = score;
-              }
-            }
-          }
-
-          if (bestMatch && bestScore >= 75) {
-            menuDataMap.set(targetMenu, {
-              imageUrl: bestMatch.imageUrl,
-              detailUrl: `https://www.shinsegaefood.com/nobrandburger/index.sf#none`,
-              description: bestMatch.description,
-            });
-
-            const originalName = bestMatch.name.split('\n')[0].trim();
-            console.log(
-              `  ✅ 발견: "${targetMenu}" (원본 이름: "${originalName}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}${bestMatch.description ? ` - description: ${bestMatch.description.substring(0, 40)}...` : ''}`,
-            );
-          } else {
-            console.log(
-              `  ⚠️ 매칭 실패: "${targetMenu}" (최고 점수: ${bestScore.toFixed(1)})`,
-            );
-          }
-        }
-      } finally {
-        await browser.close();
       }
+
+      console.log(`📋 총 ${nobrandMenus.length}개의 현재 메뉴를 처리합니다.`);
     } catch (error: any) {
       console.error(`  ❌ 스크래핑 실패: ${error.message}`);
       errors++;
@@ -316,6 +185,13 @@ export class NobrandScraperService extends BaseScraperService {
     const nutritionMap = new Map<string, any>();
 
     const nutritionDataMapping: Record<string, any> = {
+      'NBB 어메이징 더블 치즈': {
+        kcal: 512,
+        protein: 27,
+        sodium: 1224,
+        sugar: 7,
+        saturatedFat: 15,
+      },
       'NBB 어메이징 더블 업': {
         kcal: 725,
         protein: 32,
@@ -323,14 +199,28 @@ export class NobrandScraperService extends BaseScraperService {
         sugar: 9,
         saturatedFat: 15,
       },
-      '시그니처': {
+      'NBB 어메이징 불고기': {
+        kcal: 372,
+        protein: 15,
+        sodium: 423,
+        sugar: 10,
+        saturatedFat: 5,
+      },
+      'NBB 어메이징 더블 살사': {
+        kcal: 481,
+        protein: 23,
+        sodium: 1086,
+        sugar: 9,
+        saturatedFat: 10,
+      },
+      시그니처: {
         kcal: 531,
         protein: 21,
         sodium: 1138,
         sugar: 9,
         saturatedFat: 9,
       },
-      '오리지널': {
+      오리지널: {
         kcal: 439,
         protein: 17,
         sodium: 642,
@@ -351,14 +241,14 @@ export class NobrandScraperService extends BaseScraperService {
         sugar: 12,
         saturatedFat: 5,
       },
-      '갈릭앤갈릭': {
+      갈릭앤갈릭: {
         kcal: 486,
         protein: 16,
         sodium: 733,
         sugar: 6,
         saturatedFat: 6,
       },
-      '메가바이트': {
+      메가바이트: {
         kcal: 657,
         protein: 19,
         sodium: 989,
@@ -379,12 +269,26 @@ export class NobrandScraperService extends BaseScraperService {
         sugar: 9,
         saturatedFat: 6,
       },
+      '크런치 치킨': {
+        kcal: 530,
+        protein: 27,
+        sodium: 1307,
+        sugar: 9,
+        saturatedFat: 6,
+      },
       '트리플 베이컨': {
         kcal: 644,
         protein: 33,
         sodium: 1673,
         sugar: 9,
         saturatedFat: 10,
+      },
+      '치폴레 치킨': {
+        kcal: 388,
+        protein: 18,
+        sodium: 918,
+        sugar: 9,
+        saturatedFat: 7,
       },
       '치폴레 핫 치킨': {
         kcal: 491,
@@ -428,12 +332,54 @@ export class NobrandScraperService extends BaseScraperService {
         sugar: 8,
         saturatedFat: 12,
       },
-      '치즈': {
+      치즈: {
         kcal: 423,
         protein: 14,
         sodium: 816,
         sugar: 7,
         saturatedFat: 8,
+      },
+      '에그 치즈 불고기': {
+        kcal: 527,
+        protein: 21,
+        sodium: 1083,
+        sugar: 12,
+        saturatedFat: 13,
+      },
+      '아보카도 타코': {
+        kcal: 477,
+        protein: 19,
+        sodium: 980,
+        sugar: 9,
+        saturatedFat: 8,
+      },
+      '스모크 바비큐': {
+        kcal: 455,
+        protein: 20,
+        sodium: 978,
+        sugar: 17,
+        saturatedFat: 6,
+      },
+      '버크셔K 카츠': {
+        kcal: 462,
+        protein: 17,
+        sodium: 940,
+        sugar: 7,
+        saturatedFat: 9,
+      },
+      '버크셔K 카츠 어니언': {
+        kcal: 524,
+        protein: 16,
+        sodium: 1003,
+        sugar: 8,
+        saturatedFat: 9,
+      },
+      '데일리 치킨': {
+        kcal: 429,
+        protein: 20,
+        sodium: 957,
+        sugar: 11,
+        saturatedFat: 4,
       },
       '클럽 샌드위치 버거': {
         kcal: 480,
@@ -484,6 +430,7 @@ export class NobrandScraperService extends BaseScraperService {
       nutritionDataMapping,
     )) {
       nutritionMap.set(menuName, nutritionData);
+      nutritionMap.set(this.normalizeMenuName(menuName), nutritionData);
       console.log(
         `  ✅ 영양성분 매핑: ${menuName} -> 칼로리: ${nutritionData.kcal}kcal, 단백질: ${nutritionData.protein}g, 나트륨: ${nutritionData.sodium}mg`,
       );
@@ -495,11 +442,15 @@ export class NobrandScraperService extends BaseScraperService {
 
     // 데이터베이스에 저장
     console.log(`\n💾 데이터베이스에 저장 중...`);
+    const activeMenuNames: string[] = [];
 
     for (const targetMenu of nobrandMenus) {
       try {
         const menuData = menuDataMap.get(targetMenu);
-        const nutritionData = nutritionMap.get(targetMenu) || {};
+        const nutritionData =
+          nutritionMap.get(targetMenu) ||
+          nutritionMap.get(this.normalizeMenuName(targetMenu)) ||
+          {};
 
         if (!menuData) {
           console.log(`  ⚠️ 메뉴 정보를 찾을 수 없음: ${targetMenu}`);
@@ -527,6 +478,7 @@ export class NobrandScraperService extends BaseScraperService {
           if (menuData.description) {
             existingMenuItem.description = menuData.description;
           }
+          existingMenuItem.isActive = true;
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -553,6 +505,7 @@ export class NobrandScraperService extends BaseScraperService {
           }
 
           updated++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 업데이트 완료: ${targetMenu}`);
         } else {
           // 생성
@@ -585,6 +538,7 @@ export class NobrandScraperService extends BaseScraperService {
           }
 
           created++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 생성 완료: ${targetMenu}`);
         }
       } catch (error: any) {
@@ -595,11 +549,19 @@ export class NobrandScraperService extends BaseScraperService {
       }
     }
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      activeMenuNames,
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 수집 로그 저장
     await this.createIngestLog({
       brandId: brand.id,
       status: errors === 0 ? 'success' : 'partial',
-      changedCount: created + updated,
+      changedCount: created + updated + deactivated,
       error: errors > 0 ? JSON.stringify(errorDetails.slice(0, 10)) : undefined,
     });
 

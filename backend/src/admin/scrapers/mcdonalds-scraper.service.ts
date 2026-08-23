@@ -8,6 +8,7 @@ import { BrandsService } from '../../brands/brands.service';
 import { BaseScraperService } from './base-scraper.service';
 import axios from 'axios';
 import * as cheerio from 'cheerio';
+import puppeteer from 'puppeteer';
 
 @Injectable()
 export class McDonaldsScraperService extends BaseScraperService {
@@ -85,9 +86,10 @@ export class McDonaldsScraperService extends BaseScraperService {
         .replace(/kcal/gi, '') // "kcal" 제거
         .replace(/meal/gi, '') // "meal" 제거
         .replace(/~/g, '') // "~" 제거
-        .replace(/®/g, '') // 특수문자 제거
+        .replace(/[®™]/g, '') // 특수문자 제거
         .replace(/™/g, '')
         .replace(/해쉬/g, '해시') // 해쉬/해시 통일
+        .replace(/상하이버거/g, '상하이 버거')
         .replace(/\s+/g, ' ') // 여러 공백을 하나로
         .replace(/\b(\d+)\s+\1\b/g, '$1') // 중복된 숫자 제거 (예: "1955 버거 1955" -> "1955 버거")
         .trim()
@@ -269,6 +271,58 @@ export class McDonaldsScraperService extends BaseScraperService {
       }
     }
 
+    if (menuDataMap.size === 0) {
+      console.log(
+        '\n⚠️ 정적 HTML에서 메뉴를 찾지 못했습니다. 브라우저 렌더링 방식으로 재시도합니다.',
+      );
+
+      const renderedMenus = await this.scrapeRenderedMenuPages(totalPages);
+      for (const renderedMenu of renderedMenus) {
+        const normalizedName = normalizeMenuName(renderedMenu.name);
+        let matchedTargetMenu = normalizedTargetMenus.get(normalizedName);
+
+        if (!matchedTargetMenu) {
+          const normalizedNameNoSpace = normalizedName.replace(/\s+/g, '');
+
+          for (const [
+            normalizedTarget,
+            targetMenu,
+          ] of normalizedTargetMenus.entries()) {
+            const normalizedTargetNoSpace = normalizedTarget.replace(
+              /\s+/g,
+              '',
+            );
+            const includesMatch =
+              normalizedName.includes(normalizedTarget) ||
+              normalizedTarget.includes(normalizedName);
+            const noSpaceMatch =
+              normalizedNameNoSpace.includes(normalizedTargetNoSpace) ||
+              normalizedTargetNoSpace.includes(normalizedNameNoSpace);
+
+            if (includesMatch || noSpaceMatch) {
+              matchedTargetMenu = targetMenu;
+              break;
+            }
+          }
+        }
+
+        if (matchedTargetMenu) {
+          const mapKey = normalizeMenuName(matchedTargetMenu);
+          const existing = menuDataMap.get(mapKey);
+          if (!existing || !existing.imageUrl) {
+            menuDataMap.set(mapKey, {
+              originalName: matchedTargetMenu,
+              imageUrl: renderedMenu.imageUrl,
+              detailUrl: renderedMenu.detailUrl,
+            });
+            console.log(
+              `  ✅ 렌더링 발견: "${matchedTargetMenu}" (원본: "${renderedMenu.name}")`,
+            );
+          }
+        }
+      }
+    }
+
     console.log(`\n📊 총 ${menuDataMap.size}개의 타겟 메뉴를 찾았습니다.`);
 
     // 타겟 메뉴에 대해 DB에 저장/업데이트
@@ -278,6 +332,14 @@ export class McDonaldsScraperService extends BaseScraperService {
     for (const [normalizedName, data] of menuDataMap.entries()) {
       console.log(`  - "${normalizedName}" -> "${data.originalName}"`);
     }
+
+    const isInvalidDescription = (value: string | null | undefined) => {
+      if (!value) return false;
+      return (
+        value.includes('페이지를 찾을 수 없습니다') ||
+        value.includes('방문하시려는 페이지 주소')
+      );
+    };
 
     // description 추출 함수
     const extractDescription = async (
@@ -339,7 +401,7 @@ export class McDonaldsScraperService extends BaseScraperService {
         }
 
         if (descriptionEl.length === 0) {
-          return null;
+          return await this.scrapeRenderedDescription(detailUrl);
         }
 
         let description = descriptionEl.html() || '';
@@ -357,12 +419,16 @@ export class McDonaldsScraperService extends BaseScraperService {
           description = description.substring(0, asteriskIndex).trim();
         }
 
-        return description || null;
+        if (isInvalidDescription(description)) {
+          return await this.scrapeRenderedDescription(detailUrl);
+        }
+
+        return description || (await this.scrapeRenderedDescription(detailUrl));
       } catch (error: unknown) {
         console.error(
           `  ⚠️ description 추출 실패 (${detailUrl}): ${error instanceof Error ? error.message : String(error)}`,
         );
-        return null;
+        return await this.scrapeRenderedDescription(detailUrl);
       }
     };
 
@@ -423,7 +489,10 @@ export class McDonaldsScraperService extends BaseScraperService {
             }
             if (description) {
               existingMenuItem.description = description;
+            } else if (isInvalidDescription(existingMenuItem.description)) {
+              existingMenuItem.description = null;
             }
+            existingMenuItem.isActive = true;
             await this.menuItemsRepository.save(existingMenuItem);
             updated++;
             console.log(`  ✅ 업데이트: ${targetMenu}`);
@@ -466,6 +535,14 @@ export class McDonaldsScraperService extends BaseScraperService {
       `\n📊 메뉴 처리 완료: ${created}개 생성, ${updated}개 업데이트, ${errors}개 실패`,
     );
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      Array.from(savedMenuItems.keys()),
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 영양성분 스크래핑
     console.log(`\n🥗 영양성분 데이터 수집 시작...`);
     const nutritionResult = await this.scrapeNutritionData(
@@ -480,7 +557,7 @@ export class McDonaldsScraperService extends BaseScraperService {
         errors === 0 && nutritionResult.errors === 0
           ? 'success'
           : 'partial_success',
-      changedCount: created + updated + nutritionResult.saved,
+      changedCount: created + updated + nutritionResult.saved + deactivated,
       error:
         errors > 0 || nutritionResult.errors > 0
           ? `${errorDetails.join('; ')}; ${nutritionResult.errorDetails.join('; ')}`
@@ -499,6 +576,300 @@ export class McDonaldsScraperService extends BaseScraperService {
         10,
       ),
     };
+  }
+
+  private async scrapeRenderedMenuPages(totalPages: number): Promise<
+    Array<{
+      name: string;
+      imageUrl: string;
+      detailUrl: string;
+    }>
+  > {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      );
+
+      const menus: Array<{
+        name: string;
+        imageUrl: string;
+        detailUrl: string;
+      }> = [];
+      const seen = new Set<string>();
+
+      for (let pageNo = 1; pageNo <= totalPages; pageNo++) {
+        const pageUrl = `https://www.mcdonalds.co.kr/kor/menu/burger?ca=16&page=${pageNo}`;
+        console.log(
+          `\n📄 렌더링 페이지 ${pageNo}/${totalPages} 처리 중: ${pageUrl}`,
+        );
+
+        await page.goto(pageUrl, {
+          waitUntil: 'networkidle2',
+          timeout: 60000,
+        });
+        await this.delay(1500);
+
+        const pageMenus = await page.evaluate(() => {
+          const labelWords = new Set(['맥런치', '세트', '단품']);
+          const extractName = (anchor: HTMLAnchorElement) => {
+            const lines = anchor.innerText
+              .split(/\n+/)
+              .map((line) => line.trim())
+              .filter(Boolean);
+
+            const fromLine = lines.find((line) => {
+              if (!/[가-힣]/.test(line)) return false;
+              if (labelWords.has(line)) return false;
+              if (/kcal/i.test(line)) return false;
+              return true;
+            });
+
+            const image = anchor.querySelector('img');
+            const alt = image?.getAttribute('alt') ?? '';
+            return (
+              fromLine || alt.replace(/_.*$/, '').replace(/^신제품\s*/, '')
+            );
+          };
+
+          return Array.from(
+            document.querySelectorAll<HTMLAnchorElement>(
+              'a[href*="/kor/menu/detail/"]',
+            ),
+          )
+            .map((anchor) => {
+              const image = anchor.querySelector('img');
+              return {
+                name: extractName(anchor),
+                imageUrl:
+                  image?.getAttribute('src') ||
+                  image?.getAttribute('data-src') ||
+                  '',
+                detailUrl: anchor.href,
+              };
+            })
+            .filter(
+              (item) =>
+                item.name.length >= 2 &&
+                item.imageUrl &&
+                !item.detailUrl.includes('exposure=recommend'),
+            );
+        });
+
+        console.log(
+          `  🔍 렌더링 페이지 ${pageNo}에서 메뉴 ${pageMenus.length}개 발견`,
+        );
+
+        for (const menu of pageMenus) {
+          const key = `${menu.name}|${menu.detailUrl}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          menus.push(menu);
+        }
+      }
+
+      return menus;
+    } finally {
+      await browser.close();
+    }
+  }
+
+  private async scrapeRenderedDescription(
+    detailUrl: string,
+  ): Promise<string | null> {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      );
+
+      await page.goto(detailUrl, {
+        waitUntil: 'networkidle2',
+        timeout: 60000,
+      });
+      await this.delay(1200);
+
+      const description = await page.evaluate(() => {
+        const isInvalidDescription = (value: string) =>
+          value.includes('페이지를 찾을 수 없습니다') ||
+          value.includes('방문하시려는 페이지 주소');
+
+        const normalizeDescription = (value: string) => {
+          let description = value.replace(/\s+/g, ' ').trim();
+          if (description.includes('*')) {
+            description = description
+              .substring(0, description.indexOf('*'))
+              .trim();
+          }
+          return description;
+        };
+
+        const selectors = [
+          'p.text-20.mt-2',
+          'p[class*="text-20"][class*="mt-2"]',
+          '.detail-images p[class*="text-20"]',
+        ];
+
+        for (const selector of selectors) {
+          const element = document.querySelector(selector);
+          const text = normalizeDescription(element?.textContent ?? '');
+          if (text.length > 0 && !isInvalidDescription(text)) {
+            return text;
+          }
+        }
+
+        const candidates = Array.from(document.querySelectorAll('p'))
+          .map((element) => normalizeDescription(element.textContent ?? ''))
+          .filter((text) => {
+            if (text.length < 15) return false;
+            if (isInvalidDescription(text)) return false;
+            if (/^\d+[-~\d]*kcal$/i.test(text)) return false;
+            if (/^[A-Za-z®™\s]+$/.test(text)) return false;
+            return /[가-힣]/.test(text);
+          });
+
+        return candidates[0] ?? null;
+      });
+
+      return description || null;
+    } catch (error: unknown) {
+      console.error(
+        `  ⚠️ 렌더링 description 추출 실패 (${detailUrl}): ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return null;
+    } finally {
+      await browser.close();
+    }
+  }
+
+  private async scrapeRenderedNutritionData(): Promise<
+    Array<{
+      menuName: string;
+      weight: number | null;
+      kcal: number | null;
+      sugar: number | null;
+      protein: number | null;
+      saturatedFat: number | null;
+      sodium: number | null;
+    }>
+  > {
+    const browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    try {
+      const page = await browser.newPage();
+      await page.setUserAgent(
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      );
+
+      await page.goto(
+        'https://www.mcdonalds.co.kr/kor/menu/information/nutrition',
+        {
+          waitUntil: 'networkidle2',
+          timeout: 60000,
+        },
+      );
+      await this.delay(1500);
+
+      return await page.evaluate(() => {
+        const parseNumber = (text: string): number | null => {
+          let cleaned = text.replace(/\([^)]*\)/g, '').trim();
+          cleaned = cleaned.replace(/[a-zA-Z%]/g, '').trim();
+          cleaned = cleaned.replace(/[,\s]/g, '').trim();
+          if (!cleaned || cleaned === '-') {
+            return null;
+          }
+          const num = parseFloat(cleaned);
+          return Number.isNaN(num) ? null : num;
+        };
+
+        const rows: Array<{
+          menuName: string;
+          weight: number | null;
+          kcal: number | null;
+          sugar: number | null;
+          protein: number | null;
+          saturatedFat: number | null;
+          sodium: number | null;
+        }> = [];
+
+        for (const table of Array.from(document.querySelectorAll('table'))) {
+          const caption = table.querySelector('caption')?.textContent ?? '';
+          const prevText = table.previousElementSibling?.textContent ?? '';
+          const sectionText = `${caption} ${prevText}`;
+
+          if (!sectionText.includes('버거')) {
+            continue;
+          }
+
+          if (sectionText.includes('세트') || sectionText.includes('라지')) {
+            continue;
+          }
+
+          for (const row of Array.from(table.querySelectorAll('tbody tr'))) {
+            const cells = Array.from(row.querySelectorAll('th,td')).map(
+              (cell) => cell.textContent?.trim() ?? '',
+            );
+
+            if (cells.length < 7) {
+              continue;
+            }
+
+            const [
+              menuName,
+              weight,
+              kcal,
+              saturatedFat,
+              sugar,
+              protein,
+              sodium,
+            ] = cells;
+
+            if (!menuName || menuName.length < 2) {
+              continue;
+            }
+
+            const parsedKcal = parseNumber(kcal);
+            const parsedProtein = parseNumber(protein);
+            const parsedSaturatedFat = parseNumber(saturatedFat);
+
+            if (
+              parsedKcal === null &&
+              parsedProtein === null &&
+              parsedSaturatedFat === null
+            ) {
+              continue;
+            }
+
+            rows.push({
+              menuName,
+              weight: parseNumber(weight),
+              kcal: parsedKcal,
+              sugar: parseNumber(sugar),
+              protein: parsedProtein,
+              saturatedFat: parsedSaturatedFat,
+              sodium: parseNumber(sodium),
+            });
+          }
+        }
+
+        return rows;
+      });
+    } finally {
+      await browser.close();
+    }
   }
 
   /**
@@ -660,6 +1031,25 @@ export class McDonaldsScraperService extends BaseScraperService {
           }
         });
       });
+
+      if (nutritionDataMap.size === 0) {
+        console.log(
+          '\n정적 HTML에서 영양성분 테이블을 찾지 못했습니다. 브라우저 렌더링 방식으로 재시도합니다.',
+        );
+
+        const renderedNutritionData = await this.scrapeRenderedNutritionData();
+        for (const data of renderedNutritionData) {
+          const normalizedMenuName = normalizeMenuName(data.menuName);
+          const existing = nutritionDataMap.get(normalizedMenuName);
+
+          if (!existing || data.menuName.length > existing.menuName.length) {
+            nutritionDataMap.set(normalizedMenuName, data);
+            console.log(
+              `  렌더링 영양성분 발견: "${data.menuName}" -> "${normalizedMenuName}" (칼로리: ${data.kcal ?? 'N/A'})`,
+            );
+          }
+        }
+      }
 
       console.log(
         `\n📊 총 ${nutritionDataMap.size}개의 영양성분 데이터를 찾았습니다.`,

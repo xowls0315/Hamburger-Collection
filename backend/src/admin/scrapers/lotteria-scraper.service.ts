@@ -48,12 +48,123 @@ export class LotteriaScraperService extends BaseScraperService {
     let errors = 0;
     const errorDetails: string[] = [];
 
-    // 롯데리아 버거 메뉴 목록 (사용자가 제공한 29개)
+    const lotteriaSourceUrl =
+      'https://www.lotteeatz.com/upload/etc/ria/items.html';
+    const lotteriaProductUrl = (productId: string) =>
+      `https://www.lotteeatz.com/products/introductions/${productId}?brandCode=LOTTERIA&rccode=brnd_main`;
+    const lotteriaSourceMenuSuffixes: Record<string, string> = {
+      '리아 두툼새우': '달걀',
+      '리아 두툼새우 스파이시토마토': '달걀',
+      '하와이안 모짜렐라버거': '달걀',
+      번트비프버거: '달걀',
+      '통다리 크리스피치킨버거(파이어핫)': '달걀',
+      '통다리 크리스피치킨버거(그릭랜치)': '달걀',
+      '나폴리 모짜렐라버거 발사믹바질': '달걀',
+      '나폴리 모짜렐라버거 토마토바질': '달걀',
+      '전주 비빔라이스 버거': '달걀',
+      '리아 새우 베이컨': '달걀',
+      '리아 불고기 베이컨': '달걀',
+      '더블 한우불고기버거': '달걀',
+      한우불고기버거: '달걀',
+      '더블 클래식치즈버거': '달걀',
+      '더블 치킨버거(N)': '달걀',
+      '더블 치킨버거': '달걀',
+      '더블 데리버거': '달걀',
+      더블엑스투버거: '달걀',
+      '리아 불고기 더블(빅불)': '밀',
+      미라클버거: '밀',
+      '더블 미라클버거': '밀',
+      '모짜렐라 인 더 버거 베이컨': '달걀',
+      핫크리스피치킨버거: '달걀',
+      '리아 사각새우 더블': '달걀',
+      클래식치즈버거: '달걀',
+      '리아 불고기': '밀',
+      '리아 새우': '달걀',
+      치킨버거: '달걀',
+      데리버거: '달걀',
+    };
+    const lotteriaSourceMenuUrl = (menuName: string) => {
+      const suffix = lotteriaSourceMenuSuffixes[menuName];
+      const text = encodeURIComponent(menuName);
+      return suffix
+        ? `${lotteriaSourceUrl}#:~:text=${text},-${encodeURIComponent(suffix)}`
+        : `${lotteriaSourceUrl}#:~:text=${text}`;
+    };
+
+    const productFallbacks: Record<
+      string,
+      {
+        productId: string;
+        description?: string;
+        imageUrl?: string;
+      }
+    > = {
+      '리아 두툼새우': {
+        productId: 'REP_000998',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2026/07/15/20260715141202435_8.png/dims/resize/x214/optimize',
+        description:
+          '탱글 두툼한 새우패티로 새우 본연의 풍미를 깔끔하게 끌어올린 리아 새우 한정판',
+      },
+      '리아 두툼새우 스파이시토마토': {
+        productId: 'REP_000999',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2026/07/15/20260715141146741_5.png/dims/resize/x214/optimize',
+        description:
+          '매콤한 토마토소스에 딱새우의 머리부터 껍질까지 농축한 액기스를 더해 은은한 감칠맛을 끌어올린 리아 새우 한정판',
+      },
+      '하와이안 모짜렐라버거': {
+        productId: 'REP_000979',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2026/06/17/20260617080434865_4.jpg/dims/resize/x214/optimize',
+        description:
+          '달콤한 파인애플과 쭉 늘어나는 모짜렐라, 나폴리탄 소스를 더해 완벽한 단짠 조합의 모짜렐라버거',
+      },
+      번트비프버거: {
+        productId: 'REP_000922',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2026/04/17/20260417142700466_3.png',
+        description:
+          '재료 하나하나의 감칠맛과 원료 본연의 풍미를 최대한 끌어올린 맛으로 꽉찬 파인다이닝 셰프의 비프버거',
+      },
+      '나폴리 모짜렐라버거 토마토바질': {
+        productId: 'REP_000581',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2025/01/15/20250115162931395_8.png',
+        description:
+          '바질의 신선함을 담은 바질마요소스에 풍부하고 진한 토마토소스로 맛을 낸 스페셜 모짜렐라버거',
+      },
+      '나폴리 모짜렐라버거 발사믹바질': {
+        productId: 'REP_000582',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2025/01/15/20250115163300416_3.png',
+        description:
+          '바질의 신선함을 담은 바질마요소스에 레드와인 발사믹의 산뜻함을 더한 스페셜 모짜렐라버거',
+      },
+      미라클버거: {
+        productId: 'REP_000349',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2025/10/16/20251016134637371_3.png',
+        description: '100% 식물성 패티와 신선한 야채들이 조화된 대체육버거',
+      },
+      '더블 미라클버거': {
+        productId: 'REP_000350',
+        imageUrl:
+          'https://img.lotteeatz.com/upload/product/2025/10/16/20251016134709789_6.png',
+        description: '100% 식물성 패티와 신선한 야채들이 조화된 대체육버거',
+      },
+    };
+
+    // 롯데리아 버거 메뉴 목록 (영양성분표 2026.07 기준)
     const lotteriaMenus = [
+      '리아 두툼새우',
+      '리아 두툼새우 스파이시토마토',
+      '하와이안 모짜렐라버거',
+      '번트비프버거',
       '통다리 크리스피치킨버거(파이어핫)',
       '통다리 크리스피치킨버거(그릭랜치)',
-      '모짜렐라버거 발사믹바질',
-      '모짜렐라버거 토마토바질',
+      '나폴리 모짜렐라버거 발사믹바질',
+      '나폴리 모짜렐라버거 토마토바질',
       '전주 비빔라이스 버거',
       '리아 새우 베이컨',
       '리아 불고기 베이컨',
@@ -65,8 +176,6 @@ export class LotteriaScraperService extends BaseScraperService {
       '더블 데리버거',
       '더블엑스투버거',
       '리아 불고기 더블(빅불)',
-      'NEW 미라클버거',
-      'NEW 더블 미라클버거',
       '미라클버거',
       '더블 미라클버거',
       '모짜렐라 인 더 버거 베이컨',
@@ -75,8 +184,6 @@ export class LotteriaScraperService extends BaseScraperService {
       '클래식치즈버거',
       '리아 불고기',
       '리아 새우',
-      '티렉스버거',
-      '치킨버거(N)',
       '치킨버거',
       '데리버거',
     ];
@@ -174,7 +281,7 @@ export class LotteriaScraperService extends BaseScraperService {
             const normalizedMenuName = menuName
               .replace(/\s+/g, '')
               .toLowerCase();
-            const matched = targetMenus.some((target) => {
+            const matchedTarget = targetMenus.find((target) => {
               const normalizedTarget = target.replace(/\s+/g, '').toLowerCase();
               return (
                 normalizedMenuName === normalizedTarget ||
@@ -183,9 +290,9 @@ export class LotteriaScraperService extends BaseScraperService {
               );
             });
 
-            if (matched) {
+            if (matchedTarget) {
               results.push({
-                name: menuName,
+                name: matchedTarget,
                 productId,
               });
             }
@@ -206,7 +313,7 @@ export class LotteriaScraperService extends BaseScraperService {
               `\n[${i + 1}/${menuItems.length}] 처리 중: ${menuItem.name} (ID: ${menuItem.productId})`,
             );
 
-            const detailUrl = `https://www.lotteeatz.com/products/introductions/${menuItem.productId}?rccode=brnd_main`;
+            const detailUrl = lotteriaProductUrl(menuItem.productId);
 
             // 상세 페이지로 이동
             await page.goto(detailUrl, {
@@ -247,12 +354,12 @@ export class LotteriaScraperService extends BaseScraperService {
               return result;
             });
 
-            menuDataMap.set(menuItem.name, {
-              productId: menuItem.productId,
-              imageUrl: pageData.imageUrl,
-              detailUrl,
-              description: pageData.description,
-            });
+              menuDataMap.set(menuItem.name, {
+                productId: menuItem.productId,
+                imageUrl: pageData.imageUrl,
+                detailUrl: lotteriaSourceMenuUrl(menuItem.name),
+                description: pageData.description,
+              });
 
             if (pageData.imageUrl) {
               console.log(
@@ -274,7 +381,7 @@ export class LotteriaScraperService extends BaseScraperService {
             // 상세 페이지 실패해도 기본 정보는 저장
             menuDataMap.set(menuItem.name, {
               productId: menuItem.productId,
-              detailUrl: `https://www.lotteeatz.com/products/introductions/${menuItem.productId}?rccode=brnd_main`,
+              detailUrl: lotteriaSourceMenuUrl(menuItem.name),
             });
           }
         }
@@ -302,12 +409,13 @@ export class LotteriaScraperService extends BaseScraperService {
       while (retryCount < maxRetries) {
         try {
           nutritionResponse = await axios.get(
-            'https://www.lotteeatz.com/upload/etc/ria/items.html',
+            lotteriaSourceUrl,
             {
               headers: {
                 'User-Agent':
                   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
               },
+              proxy: false,
               timeout: 30000, // 30초 타임아웃
             },
           );
@@ -357,274 +465,107 @@ export class LotteriaScraperService extends BaseScraperService {
 
       console.log(`  📋 헤더 매핑:`, headerMap);
 
-      // "버거메뉴" 섹션 찾기
-      const burgerTbody = $nutrition('tbody').filter((_, elem) => {
-        const firstTd = $nutrition(elem).find('td').first();
-        const text = firstTd.text().trim();
-        return text === '버거메뉴';
+      const normalizeMenuName = (name: string): string => {
+        return name
+          .replace(/^new\s*/i, '')
+          .replace(/\s+/g, '')
+          .replace(/나폴리/g, '')
+          .replace(/\(버터번\)/g, '')
+          .replace(/\(n\)/gi, '')
+          .toLowerCase();
+      };
+
+      const parseNumber = (value: string): number | undefined => {
+        const match = value.replace(/,/g, '').match(/(\d+(?:\.\d+)?)/);
+        return match ? Number(match[1]) : undefined;
+      };
+
+      const findTargetMenu = (menuName: string): string | undefined => {
+        const normalizedMenuName = normalizeMenuName(menuName);
+
+        const exactMatch = lotteriaMenus.find(
+          (target) => normalizeMenuName(target) === normalizedMenuName,
+        );
+        if (exactMatch) {
+          return exactMatch;
+        }
+
+        const partialMatches = lotteriaMenus
+          .map((target) => ({
+            target,
+            normalizedTarget: normalizeMenuName(target),
+          }))
+          .filter(({ normalizedTarget }) => {
+            if (normalizedTarget.length < 5 || normalizedMenuName.length < 5) {
+              return false;
+            }
+            return (
+              normalizedMenuName.includes(normalizedTarget) ||
+              normalizedTarget.includes(normalizedMenuName)
+            );
+          })
+          .sort((a, b) => b.normalizedTarget.length - a.normalizedTarget.length);
+
+        return partialMatches[0]?.target;
+      };
+
+      let inBurgerSection = false;
+      let foundBurgerSection = false;
+
+      $nutrition('tr').each((_, row) => {
+        const cells = $nutrition(row).find('th,td');
+        if (cells.length === 0) return;
+
+        const values = cells
+          .map((__, cell) => $nutrition(cell).text().replace(/\s+/g, ' ').trim())
+          .get();
+        const sectionName = values[0];
+
+        if (sectionName === '버거메뉴') {
+          inBurgerSection = true;
+          foundBurgerSection = true;
+        } else if (
+          inBurgerSection &&
+          cells.eq(0).attr('rowspan') &&
+          sectionName !== '버거메뉴'
+        ) {
+          inBurgerSection = false;
+        }
+
+        if (!inBurgerSection) return;
+
+        const menuNameIndex = sectionName === '버거메뉴' ? 1 : 0;
+        const menuName = values[menuNameIndex];
+        if (!menuName || menuName === '버거메뉴') return;
+
+        const matchedMenu = findTargetMenu(menuName);
+        if (!matchedMenu) return;
+
+        const nutrition = {
+          weight: parseNumber(values[menuNameIndex + 2] ?? ''),
+          kcal: parseNumber(values[menuNameIndex + 3] ?? ''),
+          protein: parseNumber(values[menuNameIndex + 4] ?? ''),
+          sodium: parseNumber(values[menuNameIndex + 5] ?? ''),
+          sugar: parseNumber(values[menuNameIndex + 6] ?? ''),
+          saturatedFat: parseNumber(values[menuNameIndex + 7] ?? ''),
+        };
+        const { weight: _weight, ...nutritionEntityFields } = nutrition;
+        const cleanedNutrition = Object.fromEntries(
+          Object.entries(nutritionEntityFields).filter(
+            ([, value]) => value !== undefined,
+          ),
+        );
+
+        if (Object.keys(cleanedNutrition).length > 0) {
+          nutritionMap.set(matchedMenu, cleanedNutrition);
+          console.log(
+            `    ✅ 영양성분 추출: "${menuName}" -> "${matchedMenu}" -> ${JSON.stringify(cleanedNutrition)}`,
+          );
+        }
       });
 
-      if (burgerTbody.length > 0) {
+      if (foundBurgerSection) {
         console.log(`  ✅ "버거메뉴" 섹션 발견`);
-
-        // 메뉴 이름 정규화 함수 (공백만 제거, 괄호는 유지)
-        const normalizeMenuName = (name: string): string => {
-          return name
-            .replace(/\s+/g, '') // 모든 공백 제거 (괄호 앞뒤 공백 포함)
-            .toLowerCase();
-        };
-
-        // 키워드 추출 함수 (메뉴 이름에서 핵심 키워드 추출, 괄호 제외)
-        const extractKeywords = (name: string): string[] => {
-          // 괄호를 제외한 부분에서 키워드 추출
-          const withoutParentheses = name.replace(/\([^)]*\)/g, '').trim();
-          // 2글자 이상의 연속된 한글/영문 조합을 키워드로 추출
-          const keywords: string[] = [];
-          const matches = withoutParentheses.match(/[가-힣]{2,}|[a-z]{2,}/gi);
-          if (matches) {
-            keywords.push(...matches.map((m) => m.toLowerCase()));
-          }
-          return keywords;
-        };
-
-        // 각 행 처리
-        burgerTbody.find('tr').each((_, row) => {
-          const cells = $nutrition(row).find('td');
-          if (cells.length === 0) return;
-
-          // 첫 번째 셀이 "버거메뉴"인 경우 (rowspan), 두 번째 셀이 메뉴 이름
-          // 그렇지 않은 경우 첫 번째 셀이 메뉴 이름
-          let menuNameIndex = 0;
-          const firstCell = cells.eq(0);
-          const firstCellText = firstCell.text().trim();
-
-          if (firstCellText === '버거메뉴' || firstCell.attr('rowspan')) {
-            menuNameIndex = 1; // rowspan이면 두 번째 셀이 메뉴 이름
-          }
-
-          if (cells.length <= menuNameIndex) return;
-
-          const menuName = cells.eq(menuNameIndex).text().trim();
-          if (!menuName || menuName === '버거메뉴') return;
-
-          // 타겟 메뉴 목록과 매칭 (정규화된 이름으로 비교)
-          const normalizedMenuName = normalizeMenuName(menuName);
-          const menuHasParentheses = /\([^)]+\)/.test(normalizedMenuName);
-          const menuKeywords = extractKeywords(menuName);
-          let matchedMenu: string | undefined;
-          let bestMatchScore = 0;
-
-          for (const target of lotteriaMenus) {
-            const normalizedTarget = normalizeMenuName(target);
-            const targetHasParentheses = /\([^)]+\)/.test(normalizedTarget);
-            const targetKeywords = extractKeywords(target);
-
-            // 1. 정확히 일치 (최고 점수) - 항상 매칭
-            if (normalizedMenuName === normalizedTarget) {
-              matchedMenu = target;
-              bestMatchScore = 100;
-              break;
-            }
-
-            // 2. 괄호가 있는 경우는 정확히 일치해야만 매칭 (부분 매칭 불가)
-            if (menuHasParentheses || targetHasParentheses) {
-              // 괄호가 있는 경우는 정확히 일치하는 경우만 매칭
-              // 이미 위에서 체크했으므로 여기서는 스킵
-              continue;
-            }
-
-            // 3. 괄호가 없는 경우에만 부분 매칭 허용
-            // 한쪽이 다른 쪽을 완전히 포함하는 경우
-            if (normalizedMenuName.includes(normalizedTarget)) {
-              const score =
-                (normalizedTarget.length / normalizedMenuName.length) * 90;
-              if (score > bestMatchScore && normalizedTarget.length >= 3) {
-                matchedMenu = target;
-                bestMatchScore = score;
-              }
-            } else if (normalizedTarget.includes(normalizedMenuName)) {
-              const score =
-                (normalizedMenuName.length / normalizedTarget.length) * 90;
-              if (score > bestMatchScore && normalizedMenuName.length >= 3) {
-                matchedMenu = target;
-                bestMatchScore = score;
-              }
-            }
-
-            // 4. 키워드 기반 매칭 (공통 키워드가 많을수록 높은 점수)
-            if (menuKeywords.length > 0 && targetKeywords.length > 0) {
-              const commonKeywords = menuKeywords.filter((kw) =>
-                targetKeywords.includes(kw),
-              );
-              if (commonKeywords.length > 0) {
-                const keywordScore =
-                  (commonKeywords.length /
-                    Math.max(menuKeywords.length, targetKeywords.length)) *
-                  80;
-                if (keywordScore > bestMatchScore) {
-                  matchedMenu = target;
-                  bestMatchScore = keywordScore;
-                }
-              }
-            }
-
-            // 5. 부분 문자열 매칭 (긴 공통 부분이 있으면)
-            let commonLength = 0;
-            const minLen = Math.min(
-              normalizedMenuName.length,
-              normalizedTarget.length,
-            );
-            for (let i = 0; i < minLen; i++) {
-              if (normalizedMenuName[i] === normalizedTarget[i]) {
-                commonLength++;
-              } else {
-                break;
-              }
-            }
-            if (commonLength >= 5) {
-              const similarityScore = (commonLength / minLen) * 70;
-              if (similarityScore > bestMatchScore) {
-                matchedMenu = target;
-                bestMatchScore = similarityScore;
-              }
-            }
-          }
-
-          // 매칭 점수가 충분히 높을 때만 매칭 성공으로 간주 (60점 이상)
-          // 단, 괄호가 있는 경우는 정확히 일치(100점)만 허용
-          if (menuHasParentheses && bestMatchScore < 100) {
-            matchedMenu = undefined;
-          } else if (!menuHasParentheses && bestMatchScore < 60) {
-            matchedMenu = undefined;
-          }
-
-          if (matchedMenu) {
-            const nutrition: any = {};
-
-            // 셀 인덱스 계산 (rowspan 고려)
-            // 헤더: 구분(0) | 제품명(1) | 알레르기(2) | 중량(3) | 열량(4) | 단백질(5) | 나트륨(6) | 당류(7) | 포화지방(8) | 카페인(9) | 원산지(10)
-            // 첫 번째 행 (rowspan 있음): 버거메뉴(0) | 제품명(1) | 알레르기(2) | 중량(3) | 열량(4) | 단백질(5) | 나트륨(6) | 당류(7) | 포화지방(8)
-            // 나머지 행 (rowspan 없음): 제품명(0) | 알레르기(1) | 중량(2) | 열량(3) | 단백질(4) | 나트륨(5) | 당류(6) | 포화지방(7)
-
-            // rowspan이 있으면 (menuNameIndex === 1) 실제 데이터는 인덱스 1부터 시작
-            // rowspan이 없으면 (menuNameIndex === 0) 실제 데이터는 인덱스 0부터 시작
-            // 하지만 메뉴 이름 다음이 알레르기, 그 다음이 중량, 그 다음이 열량...
-            // 따라서: 메뉴이름 다음 = 알레르기, 그 다음 = 중량, 그 다음 = 열량
-
-            // 열량: 메뉴이름 인덱스 + 3 (알레르기, 중량 건너뛰고)
-            const kcalIndex = menuNameIndex + 3;
-            if (cells.length > kcalIndex) {
-              const valueText = cells.eq(kcalIndex).text().trim();
-              const match = valueText.match(/(\d+)/);
-              if (match) {
-                nutrition.kcal = parseFloat(match[1]);
-              }
-            }
-
-            // 단백질: 메뉴이름 인덱스 + 4
-            const proteinIndex = menuNameIndex + 4;
-            if (cells.length > proteinIndex) {
-              const valueText = cells.eq(proteinIndex).text().trim();
-              // "12(23%)" 형식에서 숫자 추출
-              const match = valueText.match(/(\d+(?:\.\d+)?)/);
-              if (match) {
-                nutrition.protein = parseFloat(match[1]);
-              }
-            }
-
-            // 나트륨: 메뉴이름 인덱스 + 5
-            const sodiumIndex = menuNameIndex + 5;
-            if (cells.length > sodiumIndex) {
-              const valueText = cells.eq(sodiumIndex).text().trim();
-              // "590(30%)" 형식에서 숫자 추출
-              const match = valueText.match(/(\d+)/);
-              if (match) {
-                nutrition.sodium = parseFloat(match[1]);
-              }
-            }
-
-            // 당류: 메뉴이름 인덱스 + 6
-            const sugarIndex = menuNameIndex + 6;
-            if (cells.length > sugarIndex) {
-              const valueText = cells.eq(sugarIndex).text().trim();
-              const match = valueText.match(/(\d+(?:\.\d+)?)/);
-              if (match) {
-                nutrition.sugar = parseFloat(match[1]);
-              }
-            }
-
-            // 포화지방: 메뉴이름 인덱스 + 7
-            const saturatedFatIndex = menuNameIndex + 7;
-            if (cells.length > saturatedFatIndex) {
-              const valueText = cells.eq(saturatedFatIndex).text().trim();
-              const match = valueText.match(/(\d+(?:\.\d+)?)/);
-              if (match) {
-                nutrition.saturatedFat = parseFloat(match[1]);
-              }
-            }
-
-            if (Object.keys(nutrition).length > 0) {
-              nutritionMap.set(matchedMenu, nutrition);
-              console.log(
-                `    ✅ 영양성분 추출: "${menuName}" -> "${matchedMenu}" -> ${JSON.stringify(nutrition)}`,
-              );
-            } else {
-              console.log(
-                `    ⚠️ 영양성분 데이터 없음: "${menuName}" (매칭: "${matchedMenu}")`,
-              );
-            }
-          } else {
-            // 매칭 실패한 메뉴도 로그로 출력 (디버깅용)
-            if (normalizedMenuName.length > 2) {
-              // 가장 유사한 메뉴 찾기 (디버깅용)
-              let closestMatch: { name: string; score: number } | null = null;
-              for (const target of lotteriaMenus) {
-                const normalizedTarget = normalizeMenuName(target);
-                const targetKeywords = extractKeywords(target);
-                const menuKeywords = extractKeywords(menuName);
-
-                let score = 0;
-                if (normalizedMenuName === normalizedTarget) {
-                  score = 100;
-                } else if (normalizedMenuName.includes(normalizedTarget)) {
-                  score =
-                    (normalizedTarget.length / normalizedMenuName.length) * 90;
-                } else if (normalizedTarget.includes(normalizedMenuName)) {
-                  score =
-                    (normalizedMenuName.length / normalizedTarget.length) * 90;
-                }
-
-                if (menuKeywords.length > 0 && targetKeywords.length > 0) {
-                  const commonKeywords = menuKeywords.filter((kw) =>
-                    targetKeywords.includes(kw),
-                  );
-                  if (commonKeywords.length > 0) {
-                    const keywordScore =
-                      (commonKeywords.length /
-                        Math.max(menuKeywords.length, targetKeywords.length)) *
-                      80;
-                    score = Math.max(score, keywordScore);
-                  }
-                }
-
-                if (!closestMatch || score > closestMatch.score) {
-                  closestMatch = { name: target, score };
-                }
-              }
-
-              if (closestMatch && closestMatch.score > 0) {
-                console.log(
-                  `    ⚠️ 매칭 실패: "${menuName}" (정규화: ${normalizedMenuName}) | 가장 유사한 메뉴: "${closestMatch.name}" (점수: ${closestMatch.score.toFixed(1)})`,
-                );
-              } else {
-                console.log(
-                  `    ⚠️ 매칭 실패: "${menuName}" (정규화: ${normalizedMenuName})`,
-                );
-              }
-            }
-          }
-        });
-
         console.log(`  📊 총 ${nutritionMap.size}개의 메뉴 영양성분 추출 완료`);
       } else {
         console.log(`  ⚠️ "버거메뉴" 섹션을 찾을 수 없음`);
@@ -635,8 +576,30 @@ export class LotteriaScraperService extends BaseScraperService {
       errorDetails.push(`영양성분 페이지 오류: ${error.message}`);
     }
 
+    for (const targetMenu of lotteriaMenus) {
+      const fallback = productFallbacks[targetMenu];
+      const current = menuDataMap.get(targetMenu);
+      if (!current) {
+        menuDataMap.set(targetMenu, {
+          productId: fallback?.productId ?? '',
+          detailUrl: lotteriaSourceMenuUrl(targetMenu),
+          description: fallback?.description,
+          imageUrl: fallback?.imageUrl,
+        });
+      } else if (fallback) {
+        menuDataMap.set(targetMenu, {
+          ...current,
+          productId: current.productId || fallback.productId,
+          detailUrl: lotteriaSourceMenuUrl(targetMenu),
+          description: current.description || fallback.description,
+          imageUrl: current.imageUrl || fallback.imageUrl,
+        });
+      }
+    }
+
     // 데이터베이스에 저장
     console.log(`\n💾 데이터베이스에 저장 중...`);
+    const activeMenuNames: string[] = [];
 
     for (const targetMenu of lotteriaMenus) {
       try {
@@ -669,6 +632,7 @@ export class LotteriaScraperService extends BaseScraperService {
           if (menuData.description) {
             existingMenuItem.description = menuData.description;
           }
+          existingMenuItem.isActive = true;
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -695,6 +659,7 @@ export class LotteriaScraperService extends BaseScraperService {
           }
 
           updated++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 업데이트 완료: ${targetMenu}`);
         } else {
           // 생성
@@ -727,6 +692,7 @@ export class LotteriaScraperService extends BaseScraperService {
           }
 
           created++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 생성 완료: ${targetMenu}`);
         }
       } catch (error: any) {
@@ -737,11 +703,19 @@ export class LotteriaScraperService extends BaseScraperService {
       }
     }
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      activeMenuNames,
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 수집 로그 저장
     await this.createIngestLog({
       brandId: brand.id,
       status: errors === 0 ? 'success' : 'partial',
-      changedCount: created + updated,
+      changedCount: created + updated + deactivated,
       error: errors > 0 ? JSON.stringify(errorDetails.slice(0, 10)) : undefined,
     });
 

@@ -6,7 +6,8 @@ import { MenuItem } from '../../menu-items/entities/menu-item.entity';
 import { Nutrition } from '../../nutrition/entities/nutrition.entity';
 import { BrandsService } from '../../brands/brands.service';
 import { BaseScraperService } from './base-scraper.service';
-import * as puppeteer from 'puppeteer';
+import axios from 'axios';
+import * as cheerio from 'cheerio';
 
 @Injectable()
 export class FrankScraperService extends BaseScraperService {
@@ -27,6 +28,74 @@ export class FrankScraperService extends BaseScraperService {
    */
   private normalizeMenuName(name: string): string {
     return name.replace(/\s+/g, ' ').trim().toLowerCase();
+  }
+
+  private cleanText(text: string): string {
+    return text.replace(/\s+/g, ' ').trim();
+  }
+
+  private toFrankImageUrl(src?: string): string | undefined {
+    if (!src) {
+      return undefined;
+    }
+
+    if (src.startsWith('http')) {
+      return src;
+    }
+
+    return new URL(src, 'https://frankburger.co.kr/html/menu_1.html').href;
+  }
+
+  private async fetchCurrentBurgerMenus(): Promise<
+    Array<{
+      name: string;
+      imageUrl?: string;
+      detailUrl: string;
+      description?: string;
+    }>
+  > {
+    const response = await axios.get<string>(
+      'https://frankburger.co.kr/html/menu_1.html',
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        proxy: false,
+        timeout: 30000,
+      },
+    );
+
+    const $ = cheerio.load(response.data);
+    const results: Array<{
+      name: string;
+      imageUrl?: string;
+      detailUrl: string;
+      description?: string;
+    }> = [];
+    const seen = new Set<string>();
+
+    $('.set_cont').each((_, item) => {
+      const $item = $(item);
+      const name = this.cleanText($item.find('.menu_ko').first().text());
+      if (!name || seen.has(this.normalizeMenuName(name))) {
+        return;
+      }
+
+      const style = $item.find('.img_area').first().attr('style') || '';
+      const imageMatch = style.match(/url\(['"]?([^'")]+)['"]?\)/);
+      const description = this.cleanText($item.find('.stext').first().text());
+
+      results.push({
+        name,
+        imageUrl: this.toFrankImageUrl(imageMatch?.[1]),
+        detailUrl: 'https://frankburger.co.kr/html/menu_1.html',
+        description: description || undefined,
+      });
+      seen.add(this.normalizeMenuName(name));
+    });
+
+    return results;
   }
 
   /**
@@ -53,246 +122,29 @@ export class FrankScraperService extends BaseScraperService {
     let errors = 0;
     const errorDetails: string[] = [];
 
-    // 프랭크버거 메뉴 목록 (사용자가 제공한 18개)
-    const frankMenus = [
-      '피넛 버터 더블 버거',
-      '피넛 버터 더블 치즈 버거',
-      '100% 한우 갈릭 버거',
-      '100% 한우 버거',
-      '프랭크 버거',
-      'K 불고기 버거',
-      'K 핫불고기 버거',
-      '쉬림프 버거',
-      '청양마요 쉬림프 버거',
-      '치즈버거',
-      '크리스피 카츠 버거',
-      '크리스피 치킨 버거',
-      '해쉬 비프 버거',
-      '베이컨 치즈버거',
-      '비프 앤 쉬림프 버거',
-      '더블 비프 치즈 버거',
-      '치즈 도넛 비프 버거',
-      'JG버거',
-    ];
-
-    console.log(`📋 총 ${frankMenus.length}개의 메뉴를 처리합니다.`);
-
-    // Puppeteer로 메인 페이지에서 메뉴 정보 추출
     const menuDataMap = new Map<
       string,
       { imageUrl?: string; detailUrl?: string; description?: string }
     >();
+    const frankMenus: string[] = [];
 
     try {
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
+      console.log(`\n🌐 프랭크버거 메뉴 페이지 수집 중...`);
+      const currentMenus = await this.fetchCurrentBurgerMenus();
 
-      try {
-        const page = await browser.newPage();
-        await page.setUserAgent(
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        );
-
-        // 프랭크버거 메뉴 페이지로 이동
-        console.log(`\n🌐 프랭크버거 메뉴 페이지 접속 중...`);
-        await page.goto('https://frankburger.co.kr/html/menu_1.html', {
-          waitUntil: 'networkidle2',
-          timeout: 30000,
+      for (const menu of currentMenus) {
+        frankMenus.push(menu.name);
+        menuDataMap.set(menu.name, {
+          imageUrl: menu.imageUrl,
+          detailUrl: menu.detailUrl,
+          description: menu.description,
         });
-
-        // 페이지 로드 대기
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-
-        // 메뉴 목록에서 각 메뉴 정보 추출 (single-wrapper 안의 swiper-slide)
-        console.log(`\n🔍 메뉴 목록에서 정보 추출 중...`);
-        const menuItems = await page.evaluate((targetMenus) => {
-          const results: Array<{
-            name: string;
-            imageUrl?: string;
-            description?: string;
-          }> = [];
-
-          const normalizeName = (name: string): string => {
-            return name.replace(/\s+/g, ' ').trim().toLowerCase();
-          };
-
-          // single-wrapper 안의 swiper-slide 요소들 찾기
-          const singleWrapper = document.querySelector('.single-wrapper');
-          if (!singleWrapper) return results;
-
-          const slides = singleWrapper.querySelectorAll('.swiper-slide');
-          slides.forEach((slide) => {
-            const menuKoEl = slide.querySelector('p.menu_ko');
-            const menuName = menuKoEl?.textContent?.trim() || '';
-
-            if (!menuName) return;
-
-            const normalizedMenuName = normalizeName(menuName);
-
-            // 타겟 메뉴 목록과 매칭
-            let matched = false;
-            for (const target of targetMenus) {
-              const normalizedTarget = normalizeName(target);
-
-              // 정확히 일치하거나, 원본 이름이 타겟을 포함하거나, 타겟이 원본 이름을 포함하는 경우
-              if (
-                normalizedMenuName === normalizedTarget ||
-                (normalizedMenuName.includes(normalizedTarget) &&
-                  normalizedTarget.length >= 5) ||
-                (normalizedTarget.includes(normalizedMenuName) &&
-                  normalizedMenuName.length >= 5)
-              ) {
-                matched = true;
-                break;
-              }
-            }
-
-            if (matched) {
-              // 이미지 URL 추출 (background-image에서)
-              const imgArea = slide.querySelector('.img_area');
-              let imageUrl = '';
-              if (imgArea) {
-                const style = window.getComputedStyle(imgArea);
-                const bgImage = style.backgroundImage;
-                if (bgImage && bgImage !== 'none') {
-                  // url("...") 또는 url('...') 형식에서 URL 추출
-                  const match = bgImage.match(/url\(['"]?([^'"]+)['"]?\)/);
-                  if (match && match[1]) {
-                    let url = match[1];
-                    // 이미 전체 URL인 경우 그대로 사용
-                    if (url.startsWith('http://') || url.startsWith('https://')) {
-                      imageUrl = url;
-                    } else {
-                      // 상대 경로 처리
-                      if (url.startsWith('../')) {
-                        url = url.replace('../', '/');
-                      } else if (!url.startsWith('/')) {
-                        url = `/${url}`;
-                      }
-                      imageUrl = `https://frankburger.co.kr${url}`;
-                    }
-                  }
-                }
-              }
-
-              // description 추출 (p.stext 요소에서)
-              let description = '';
-              const stextEl = slide.querySelector('p.stext');
-              if (stextEl) {
-                // <br> 태그를 공백으로 변환하고 텍스트 추출
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = stextEl.innerHTML;
-                // <br> 태그를 공백으로 변환
-                const brElements = tempDiv.querySelectorAll('br');
-                brElements.forEach((br) => {
-                  br.replaceWith(' ');
-                });
-                description = tempDiv.textContent || tempDiv.innerText || '';
-                // 여러 공백을 하나로 정리
-                description = description.replace(/\s+/g, ' ').trim();
-              }
-
-              results.push({
-                name: menuName,
-                imageUrl: imageUrl || undefined,
-                description: description || undefined,
-              });
-            }
-          });
-
-          return results;
-        }, frankMenus);
-
-        console.log(`  ✅ ${menuItems.length}개의 메뉴 정보 발견`);
-
-        // 메뉴 데이터 맵에 저장 (각 타겟 메뉴에 대해 가장 정확한 스크랩된 메뉴를 찾음)
-        for (const targetMenu of frankMenus) {
-          let bestMatch: {
-            name: string;
-            imageUrl?: string;
-            description?: string;
-          } | null = null;
-          let bestScore = 0;
-          const normalizedTarget = this.normalizeMenuName(targetMenu);
-
-          for (const menuItem of menuItems) {
-            const normalizedMenuName = this.normalizeMenuName(menuItem.name);
-            let score = 0;
-
-            // 1. 정확히 일치 (최고 점수) - 즉시 매칭
-            if (normalizedMenuName === normalizedTarget) {
-              bestMatch = menuItem;
-              bestScore = 100;
-              break;
-            }
-
-            // 2. 원본 이름이 타겟을 완전히 포함하는 경우 (타겟이 최소 5글자 이상)
-            if (
-              normalizedMenuName.includes(normalizedTarget) &&
-              normalizedTarget.length >= 5
-            ) {
-              score =
-                (normalizedTarget.length / normalizedMenuName.length) * 95;
-            }
-            // 3. 타겟이 원본 이름을 완전히 포함하는 경우 (원본이 최소 5글자 이상)
-            else if (
-              normalizedTarget.includes(normalizedMenuName) &&
-              normalizedMenuName.length >= 5
-            ) {
-              score =
-                (normalizedMenuName.length / normalizedTarget.length) * 95;
-            }
-
-            // 4. 키워드 매칭 (공통 단어가 많을수록 높은 점수)
-            const targetWords = normalizedTarget.split(/\s+/).filter((w) => w.length > 1);
-            const menuWords = normalizedMenuName.split(/\s+/).filter((w) => w.length > 1);
-            const commonWords = targetWords.filter((w) => menuWords.includes(w));
-            if (commonWords.length > 0) {
-              const keywordScore =
-                (commonWords.length /
-                  Math.max(targetWords.length, menuWords.length)) *
-                85;
-              if (keywordScore > score) {
-                score = keywordScore;
-              }
-            }
-
-            // 최고 점수 업데이트 (75점 이상만 허용)
-            // 더 높은 점수이거나, 같은 점수면 원본 이름이 더 긴 것을 우선 (더 정확한 매칭)
-            if (score >= 75) {
-              if (
-                score > bestScore ||
-                (score === bestScore &&
-                  menuItem.name.length >
-                    (bestMatch?.name.length || 0))
-              ) {
-                bestMatch = menuItem;
-                bestScore = score;
-              }
-            }
-          }
-
-          if (bestMatch && bestScore >= 75) {
-            menuDataMap.set(targetMenu, {
-              imageUrl: bestMatch.imageUrl,
-              detailUrl: `https://frankburger.co.kr/html/menu_1.html`,
-              description: bestMatch.description,
-            });
-
-            console.log(
-              `  ✅ 발견: "${targetMenu}" (원본 이름: "${bestMatch.name}", 점수: ${bestScore.toFixed(1)})${bestMatch.imageUrl ? ` - 이미지: ${bestMatch.imageUrl.substring(0, 60)}...` : ''}${bestMatch.description ? ` - description: ${bestMatch.description.substring(0, 40)}...` : ''}`,
-            );
-          } else {
-            console.log(
-              `  ⚠️ 매칭 실패: "${targetMenu}" (최고 점수: ${bestScore.toFixed(1)})`,
-            );
-          }
-        }
-      } finally {
-        await browser.close();
+        console.log(
+          `  ✅ 발견: "${menu.name}"${menu.imageUrl ? ` - 이미지: ${menu.imageUrl.substring(0, 60)}...` : ''}${menu.description ? ` - description: ${menu.description.substring(0, 40)}...` : ''}`,
+        );
       }
+
+      console.log(`📋 총 ${frankMenus.length}개의 현재 메뉴를 처리합니다.`);
     } catch (error: any) {
       console.error(`  ❌ 스크래핑 실패: ${error.message}`);
       errors++;
@@ -306,6 +158,27 @@ export class FrankScraperService extends BaseScraperService {
     const nutritionMap = new Map<string, any>();
 
     const nutritionDataMapping: Record<string, any> = {
+      '파닭파닭 치킨버거': {
+        kcal: 649.14,
+        protein: 27.97,
+        sodium: 1067.37,
+        sugar: 10.81,
+        saturatedFat: 10.51,
+      },
+      '깐쇼새우 비프버거': {
+        kcal: 772.26,
+        protein: 27.88,
+        sodium: 1252.34,
+        sugar: 12.92,
+        saturatedFat: 14.28,
+      },
+      '맥앤치즈 비프버거': {
+        kcal: 910.38,
+        protein: 35.9,
+        sodium: 1759.22,
+        sugar: 5.44,
+        saturatedFat: 21.61,
+      },
       '피넛 버터 더블 버거': {
         kcal: 759,
         protein: 33.2,
@@ -369,7 +242,7 @@ export class FrankScraperService extends BaseScraperService {
         sugar: 10.6,
         saturatedFat: 7.4,
       },
-      '치즈버거': {
+      치즈버거: {
         kcal: 472,
         protein: 20.2,
         sodium: 750.2,
@@ -425,7 +298,7 @@ export class FrankScraperService extends BaseScraperService {
         sugar: 10.0,
         saturatedFat: 16.8,
       },
-      'JG버거': {
+      JG버거: {
         kcal: 726,
         protein: 36.7,
         sodium: 1415.4,
@@ -439,6 +312,7 @@ export class FrankScraperService extends BaseScraperService {
       nutritionDataMapping,
     )) {
       nutritionMap.set(menuName, nutritionData);
+      nutritionMap.set(this.normalizeMenuName(menuName), nutritionData);
       console.log(
         `  ✅ 영양성분 매핑: ${menuName} -> 칼로리: ${nutritionData.kcal}kcal, 단백질: ${nutritionData.protein}g, 나트륨: ${nutritionData.sodium}mg`,
       );
@@ -450,11 +324,15 @@ export class FrankScraperService extends BaseScraperService {
 
     // 데이터베이스에 저장
     console.log(`\n💾 데이터베이스에 저장 중...`);
+    const activeMenuNames: string[] = [];
 
     for (const targetMenu of frankMenus) {
       try {
         const menuData = menuDataMap.get(targetMenu);
-        const nutritionData = nutritionMap.get(targetMenu) || {};
+        const nutritionData =
+          nutritionMap.get(targetMenu) ||
+          nutritionMap.get(this.normalizeMenuName(targetMenu)) ||
+          {};
 
         if (!menuData) {
           console.log(`  ⚠️ 메뉴 정보를 찾을 수 없음: ${targetMenu}`);
@@ -482,6 +360,7 @@ export class FrankScraperService extends BaseScraperService {
           if (menuData.description) {
             existingMenuItem.description = menuData.description;
           }
+          existingMenuItem.isActive = true;
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -508,6 +387,7 @@ export class FrankScraperService extends BaseScraperService {
           }
 
           updated++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 업데이트 완료: ${targetMenu}`);
         } else {
           // 생성
@@ -540,6 +420,7 @@ export class FrankScraperService extends BaseScraperService {
           }
 
           created++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 생성 완료: ${targetMenu}`);
         }
       } catch (error: any) {
@@ -550,11 +431,19 @@ export class FrankScraperService extends BaseScraperService {
       }
     }
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      activeMenuNames,
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 수집 로그 저장
     await this.createIngestLog({
       brandId: brand.id,
       status: errors === 0 ? 'success' : 'partial',
-      changedCount: created + updated,
+      changedCount: created + updated + deactivated,
       error: errors > 0 ? JSON.stringify(errorDetails.slice(0, 10)) : undefined,
     });
 

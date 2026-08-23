@@ -6,6 +6,7 @@ import { MenuItem } from '../../menu-items/entities/menu-item.entity';
 import { Nutrition } from '../../nutrition/entities/nutrition.entity';
 import { BrandsService } from '../../brands/brands.service';
 import { BaseScraperService } from './base-scraper.service';
+import axios from 'axios';
 import * as puppeteer from 'puppeteer';
 
 @Injectable()
@@ -26,7 +27,83 @@ export class KfcScraperService extends BaseScraperService {
    * 메뉴 이름 정규화 함수
    */
   private normalizeMenuName(name: string): string {
-    return name.replace(/\s+/g, ' ').trim().toLowerCase();
+    return name.replace(/\s+/g, '').trim().toLowerCase();
+  }
+
+  private normalizeKfcDisplayName(name: string): string {
+    return name
+      .replace(/_KEP_/g, '켚')
+      .replace(/_CHIK_/g, '칰')
+      .trim();
+  }
+
+  private toKfcImageUrl(imageUrl: string): string {
+    if (!imageUrl) {
+      return '';
+    }
+    if (imageUrl.startsWith('http')) {
+      return imageUrl;
+    }
+    if (imageUrl.startsWith('//')) {
+      return `https:${imageUrl}`;
+    }
+    if (imageUrl.startsWith('/kfcs_api_img/')) {
+      return `https://kfcapi.inicis.com${imageUrl}`;
+    }
+    if (imageUrl.startsWith('/')) {
+      return `https://www.kfckorea.com${imageUrl}`;
+    }
+    return `https://www.kfckorea.com/${imageUrl}`;
+  }
+
+  private async fetchKfcDeliveryBurgerMenus(): Promise<
+    Array<{
+      name: string;
+      imageUrl: string;
+      detailUrl?: string;
+      description?: string;
+    }>
+  > {
+    const response = await axios.post(
+      'https://www.kfckorea.com/kfc/interface/selectDeliveryList',
+      new URLSearchParams({
+        product_ordertype: 'D',
+        delivery_subGroupCd: 'BEGR',
+        merchantId: '',
+      }).toString(),
+      {
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+          Referer: 'https://www.kfckorea.com/delivery/burger',
+          'User-Agent':
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        },
+        timeout: 15000,
+      },
+    );
+
+    const list = response.data?.kfcs?.data?.list;
+    if (!Array.isArray(list)) {
+      return [];
+    }
+
+    return list
+      .filter((item) => item?.menuNm && item?.menuImgUrl)
+      .map((item) => {
+        const menuCd = String(item.menuCd || '').trim();
+        const merchantShortYn = String(item.merchantShortYn || 'N').trim();
+
+        return {
+          name: this.normalizeKfcDisplayName(String(item.menuNm)),
+          imageUrl: this.toKfcImageUrl(String(item.menuImgUrl)),
+          detailUrl: menuCd
+            ? `https://www.kfckorea.com/delivery/detail/${merchantShortYn}/${menuCd}`
+            : undefined,
+          description: item.menuDesc
+            ? this.normalizeKfcDisplayName(String(item.menuDesc))
+            : undefined,
+        };
+      });
   }
 
   /**
@@ -55,6 +132,9 @@ export class KfcScraperService extends BaseScraperService {
 
     // KFC 메뉴 목록 (사용자가 제공한 9개)
     const kfcMenus = [
+      '칰폴레맵징거통다리',
+      '칰폴레맵징거타워',
+      '칰폴레맵징거더블다운',
       '징거더블다운통다리',
       '치즈징거통다리',
       '징거BLT',
@@ -75,22 +155,38 @@ export class KfcScraperService extends BaseScraperService {
     >();
 
     try {
-      // KFC 메뉴 페이지에서 메뉴 정보 추출 (Puppeteer 사용 - 동적 콘텐츠)
-      console.log(`\n🌐 KFC 메뉴 페이지 접속 중...`);
-      const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
-      });
-
       try {
-        const page = await browser.newPage();
-        await page.setUserAgent(
-          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        );
-        await page.goto('https://www.kfckorea.com/delivery/burger', {
-          waitUntil: 'networkidle2',
-          timeout: 30000,
+        console.log(`\n🌐 KFC 공식 메뉴 API 호출 중...`);
+        const apiMenuData = await this.fetchKfcDeliveryBurgerMenus();
+        apiMenuData.forEach((menu) => {
+          menuDataMap.set(menu.name, {
+            imageUrl: menu.imageUrl,
+            detailUrl: menu.detailUrl,
+            description: menu.description,
+          });
         });
+        console.log(`  ✅ API에서 ${apiMenuData.length}개의 메뉴 정보 발견`);
+      } catch (apiError: any) {
+        console.log(`  ⚠️ KFC 공식 메뉴 API 호출 실패: ${apiError.message}`);
+      }
+
+      if (menuDataMap.size === 0) {
+        // KFC 메뉴 페이지에서 메뉴 정보 추출 (Puppeteer 사용 - 동적 콘텐츠)
+        console.log(`\n🌐 KFC 메뉴 페이지 접속 중...`);
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        });
+
+        try {
+          const page = await browser.newPage();
+          await page.setUserAgent(
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          );
+          await page.goto('https://www.kfckorea.com/delivery/burger', {
+            waitUntil: 'networkidle2',
+            timeout: 30000,
+          });
 
         // 페이지가 완전히 로드될 때까지 추가 대기
         await new Promise<void>((resolve) => setTimeout(resolve, 2000));
@@ -117,11 +213,14 @@ export class KfcScraperService extends BaseScraperService {
         try {
           await page.waitForSelector('li.col.col_gutter', { timeout: 15000 });
         } catch (error) {
-          console.log('  ⚠️ li.col.col_gutter 셀렉터를 찾을 수 없습니다. 다른 셀렉터를 시도합니다...');
+          console.log(
+            '  ⚠️ li.col.col_gutter 셀렉터를 찾을 수 없습니다. 다른 셀렉터를 시도합니다...',
+          );
           // 디버깅: 현재 페이지의 HTML 구조 확인
           const bodyHTML = await page.evaluate(() => document.body.innerHTML);
           console.log(`  📄 페이지 HTML 길이: ${bodyHTML.length} 문자`);
-          const hasMenuElements = bodyHTML.includes('col_gutter') || bodyHTML.includes('징거');
+          const hasMenuElements =
+            bodyHTML.includes('col_gutter') || bodyHTML.includes('징거');
           console.log(`  🔍 메뉴 관련 요소 존재: ${hasMenuElements}`);
         }
 
@@ -137,7 +236,7 @@ export class KfcScraperService extends BaseScraperService {
           // li.col.col_gutter 셀렉터로 시도
           let menuElements = document.querySelectorAll('li.col.col_gutter');
           console.log(`li.col.col_gutter: ${menuElements.length}개 발견`);
-          
+
           if (menuElements.length === 0) {
             // 다른 가능한 셀렉터들 시도
             const altSelectors = [
@@ -147,11 +246,13 @@ export class KfcScraperService extends BaseScraperService {
               '[class*="menu"]',
               '[class*="burger"]',
             ];
-            
+
             for (const selector of altSelectors) {
               const elements = document.querySelectorAll(selector);
               if (elements.length > 0) {
-                console.log(`대체 셀렉터 발견: ${selector} (${elements.length}개)`);
+                console.log(
+                  `대체 셀렉터 발견: ${selector} (${elements.length}개)`,
+                );
                 menuElements = elements;
                 break;
               }
@@ -161,15 +262,25 @@ export class KfcScraperService extends BaseScraperService {
           menuElements.forEach((el) => {
             const nameEl = el.querySelector('h3');
             const imgEl = el.querySelector('img');
-            const linkEl = el.querySelector('div.contents > a') || el.querySelector('a');
+            const linkEl =
+              el.querySelector('div.contents > a') || el.querySelector('a');
 
             if (nameEl && imgEl) {
               const name = nameEl.textContent?.trim() || '';
-              const imageUrl = imgEl.getAttribute('src') || '';
+              const imageSrc = imgEl.getAttribute('src') || '';
+              const imageUrl = imageSrc.startsWith('http')
+                ? imageSrc
+                : imageSrc.startsWith('//')
+                  ? `https:${imageSrc}`
+                  : imageSrc.startsWith('/')
+                    ? `https://www.kfckorea.com${imageSrc}`
+                    : `https://www.kfckorea.com/${imageSrc}`;
               const detailRelativeUrl = linkEl?.getAttribute('href') || '';
-              const detailUrl = detailRelativeUrl
-                ? `https://www.kfckorea.com${detailRelativeUrl}`
-                : undefined;
+              const detailUrl = detailRelativeUrl.startsWith('http')
+                ? detailRelativeUrl
+                : detailRelativeUrl
+                  ? `https://www.kfckorea.com${detailRelativeUrl}`
+                  : undefined;
 
               if (name && imageUrl) {
                 menus.push({ name, imageUrl, detailUrl });
@@ -194,9 +305,10 @@ export class KfcScraperService extends BaseScraperService {
           });
         });
 
-        console.log(`  ✅ ${menuDataMap.size}개의 메뉴 정보 발견`);
-      } finally {
-        await browser.close();
+          console.log(`  ✅ ${menuDataMap.size}개의 메뉴 정보 발견`);
+        } finally {
+          await browser.close();
+        }
       }
 
       // 각 타겟 메뉴에 대해 가장 정확한 스크랩된 메뉴를 찾음
@@ -226,16 +338,14 @@ export class KfcScraperService extends BaseScraperService {
             normalizedMenuName.includes(normalizedTarget) &&
             normalizedTarget.length >= 5
           ) {
-            score =
-              (normalizedTarget.length / normalizedMenuName.length) * 95;
+            score = (normalizedTarget.length / normalizedMenuName.length) * 95;
           }
           // 3. 타겟이 원본 이름을 완전히 포함하는 경우 (원본이 최소 5글자 이상)
           else if (
             normalizedTarget.includes(normalizedMenuName) &&
             normalizedMenuName.length >= 5
           ) {
-            score =
-              (normalizedMenuName.length / normalizedTarget.length) * 95;
+            score = (normalizedMenuName.length / normalizedTarget.length) * 95;
           }
 
           // 4. 키워드 매칭 (공통 단어가 많을수록 높은 점수)
@@ -301,6 +411,27 @@ export class KfcScraperService extends BaseScraperService {
 
     // 사용자가 제공한 영양성분 데이터
     const nutritionDataMapping: Record<string, any> = {
+      칰폴레맵징거통다리: {
+        kcal: 695,
+        protein: 24,
+        saturatedFat: 10.1,
+        sodium: 1125,
+        sugar: 18,
+      },
+      칰폴레맵징거타워: {
+        kcal: 803,
+        protein: 37,
+        saturatedFat: 11.8,
+        sodium: 1386,
+        sugar: 16,
+      },
+      칰폴레맵징거더블다운: {
+        kcal: 846,
+        protein: 48,
+        saturatedFat: 18.4,
+        sodium: 1626,
+        sugar: 6,
+      },
       징거더블다운통다리: {
         kcal: 966,
         protein: 49,
@@ -382,6 +513,7 @@ export class KfcScraperService extends BaseScraperService {
 
     // 데이터베이스에 저장
     console.log(`\n💾 데이터베이스에 저장 중...`);
+    const activeMenuNames: string[] = [];
 
     for (const targetMenu of kfcMenus) {
       try {
@@ -414,6 +546,7 @@ export class KfcScraperService extends BaseScraperService {
           if (menuData.description !== undefined) {
             existingMenuItem.description = menuData.description;
           }
+          existingMenuItem.isActive = true;
           await this.menuItemsRepository.save(existingMenuItem);
 
           // 영양정보 업데이트
@@ -440,6 +573,7 @@ export class KfcScraperService extends BaseScraperService {
           }
 
           updated++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 업데이트 완료: ${targetMenu}`);
         } else {
           // 생성
@@ -472,6 +606,7 @@ export class KfcScraperService extends BaseScraperService {
           }
 
           created++;
+          activeMenuNames.push(targetMenu);
           console.log(`  ✅ 생성 완료: ${targetMenu}`);
         }
       } catch (error: any) {
@@ -482,11 +617,19 @@ export class KfcScraperService extends BaseScraperService {
       }
     }
 
+    const deactivated = await this.deactivateStaleMenuItems(
+      brand.id,
+      activeMenuNames,
+    );
+    if (deactivated > 0) {
+      console.log(`  🗄️ 현재 홈페이지에 없는 메뉴 ${deactivated}개 비활성화`);
+    }
+
     // 수집 로그 저장
     await this.createIngestLog({
       brandId: brand.id,
       status: errors === 0 ? 'success' : 'partial',
-      changedCount: created + updated,
+      changedCount: created + updated + deactivated,
       error: errors > 0 ? JSON.stringify(errorDetails.slice(0, 10)) : undefined,
     });
 
