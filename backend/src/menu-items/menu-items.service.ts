@@ -39,45 +39,21 @@ export class MenuItemsService {
       });
     }
 
-    // 정렬 처리 - 먼저 전체 데이터를 가져온 후 정렬
     const page = options?.page || 1;
     const limit = options?.limit || 12;
 
-    // 정렬이 필요한 경우 전체 데이터를 가져와서 정렬
-    if (options?.sort === 'kcal_asc' || options?.sort === 'kcal_desc') {
-      const allItems = await queryBuilder.getMany();
-      const total = allItems.length;
-
-      // JavaScript에서 정렬
-      allItems.sort((a, b) => {
-        const aKcal = a.nutrition?.kcal ?? (options?.sort === 'kcal_asc' ? 999999 : -1);
-        const bKcal = b.nutrition?.kcal ?? (options?.sort === 'kcal_asc' ? 999999 : -1);
-
-        if (aKcal !== bKcal) {
-          return options?.sort === 'kcal_asc'
-            ? aKcal - bKcal
-            : bKcal - aKcal;
-        }
-
-        // 칼로리가 같으면 이름순 정렬
-        return a.name.localeCompare(b.name, 'ko');
-      });
-
-      // 페이지네이션 적용
-      const skip = (page - 1) * limit;
-      const items = allItems.slice(skip, skip + limit);
-
-      return {
-        items,
-        total,
-        page,
-        limit,
-        totalPages: Math.ceil(total / limit),
-      };
+    if (options?.sort === 'kcal_asc') {
+      queryBuilder
+        .orderBy('nutrition.kcal', 'ASC', 'NULLS LAST')
+        .addOrderBy('menuItem.name', 'ASC');
+    } else if (options?.sort === 'kcal_desc') {
+      queryBuilder
+        .orderBy('nutrition.kcal', 'DESC', 'NULLS LAST')
+        .addOrderBy('menuItem.name', 'ASC');
+    } else {
+      queryBuilder.orderBy('menuItem.name', 'ASC');
     }
 
-    // 정렬이 없으면 이름순으로 정렬하고 페이지네이션
-    queryBuilder.orderBy('menuItem.name', 'ASC');
     const skip = (page - 1) * limit;
     queryBuilder.skip(skip).take(limit);
 

@@ -19,7 +19,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { CookieOptions, Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { LocalAuthGuard } from './guards/local-auth.guard';
@@ -47,7 +47,7 @@ export class AuthController {
     status: 302,
     description: '카카오 로그인 페이지로 리다이렉트',
   })
-  async kakaoLogin(@Res() res: Response) {
+  kakaoLogin(@Res() res: Response) {
     const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${this.configService.get('KAKAO_REST_API_KEY')}&redirect_uri=${this.configService.get('KAKAO_REDIRECT_URI')}&response_type=code`;
     res.redirect(kakaoAuthUrl);
   }
@@ -86,7 +86,7 @@ export class AuthController {
       // iOS Safari 호환성을 위한 쿠키 설정
       // domain을 명시하지 않으면 현재 도메인에만 설정되어 서브도메인 문제 방지
       // iOS Safari는 SameSite=None일 때 Secure가 필수이므로 항상 secure: true 설정
-      const cookieOptions: any = {
+      const cookieOptions: CookieOptions = {
         httpOnly: true,
         secure: isProduction, // HTTPS에서만 작동 (iOS Safari 필수)
         sameSite: isProduction ? 'none' : 'lax', // 프로덕션에서는 크로스 도메인 허용
@@ -142,9 +142,8 @@ export class AuthController {
   })
   @ApiResponse({ status: 200, description: '사용자 정보 반환' })
   @ApiResponse({ status: 401, description: '인증 필요' })
-  async getMe(@Req() req: { user: Record<string, unknown> }) {
-    const { password: _p, ...rest } = req.user;
-    return rest;
+  getMe(@Req() req: { user: Record<string, unknown> }) {
+    return req.user;
   }
 
   @Post('refresh')
@@ -193,7 +192,9 @@ export class AuthController {
     }
 
     try {
-      const { accessToken } = await this.authService.refreshToken(refreshToken);
+      const { accessToken, refreshToken: newRefreshToken } =
+        await this.authService.refreshToken(refreshToken);
+      this.setRefreshTokenCookie(res, newRefreshToken);
       console.log('토큰 갱신 성공');
       // Access Token을 응답 body로 반환 (메모리 저장용)
       return res.json({ accessToken });
@@ -215,7 +216,11 @@ export class AuthController {
       'Refresh Token 쿠키를 삭제합니다. Access Token은 클라이언트 메모리에서 제거해야 합니다.',
   })
   @ApiResponse({ status: 200, description: '로그아웃 성공' })
-  async logout(@Res() res: Response) {
+  async logout(@Req() req: Request, @Res() res: Response) {
+    const refreshToken = req.cookies?.refreshToken;
+    if (refreshToken) {
+      await this.authService.logout(refreshToken);
+    }
     const isProduction = this.configService.get('NODE_ENV') === 'production';
     res.clearCookie('refreshToken', {
       httpOnly: true,
@@ -271,16 +276,25 @@ export class AuthController {
   ) {
     const { user, accessToken, refreshToken } =
       await this.authService.localLogin(req.user);
+    this.setRefreshTokenCookie(res, refreshToken);
+    return res.json({ accessToken, user });
+  }
+
+  private getRefreshTokenCookieOptions() {
     const isProduction = this.configService.get('NODE_ENV') === 'production';
-    res.cookie('refreshToken', refreshToken, {
+    return {
       httpOnly: true,
       secure: isProduction,
-      sameSite: isProduction ? 'none' : 'lax',
-      maxAge: 7 * 24 * 60 * 60 * 1000,
+      sameSite: isProduction ? ('none' as const) : ('lax' as const),
       path: '/',
+    } satisfies CookieOptions;
+  }
+
+  private setRefreshTokenCookie(res: Response, refreshToken: string) {
+    res.cookie('refreshToken', refreshToken, {
+      ...this.getRefreshTokenCookieOptions(),
+      maxAge: 7 * 24 * 60 * 60 * 1000,
     });
-    const { password: _p, ...safeUser } = user;
-    return res.json({ accessToken, user: safeUser });
   }
 
   @Post('find-id')

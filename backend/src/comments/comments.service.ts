@@ -17,11 +17,13 @@ export class CommentsService {
   ) {}
 
   async findAllByPostId(postId: string): Promise<Comment[]> {
-    return await this.commentsRepository.find({
-      where: { postId },
-      relations: ['user'],
-      order: { createdAt: 'ASC' },
-    });
+    return await this.commentsRepository
+      .createQueryBuilder('comment')
+      .leftJoin('comment.user', 'user')
+      .addSelect(['user.id', 'user.nickname', 'user.profileImage'])
+      .where('comment.postId = :postId', { postId })
+      .orderBy('comment.createdAt', 'ASC')
+      .getMany();
   }
 
   async create(
@@ -36,15 +38,14 @@ export class CommentsService {
     });
     const savedComment = await this.commentsRepository.save(comment);
     // user relation을 포함해서 반환
-    const createdComment = await this.commentsRepository.findOne({
-      where: { id: savedComment.id },
-      relations: ['user'],
-    });
-    
+    const createdComment = await this.findOneWithPublicUser(savedComment.id);
+
     if (!createdComment) {
-      throw new NotFoundException(`Comment with id ${savedComment.id} not found`);
+      throw new NotFoundException(
+        `Comment with id ${savedComment.id} not found`,
+      );
     }
-    
+
     return createdComment;
   }
 
@@ -66,15 +67,14 @@ export class CommentsService {
     Object.assign(comment, updateCommentDto);
     const savedComment = await this.commentsRepository.save(comment);
     // user relation을 포함해서 반환
-    const updatedComment = await this.commentsRepository.findOne({
-      where: { id: savedComment.id },
-      relations: ['user'],
-    });
-    
+    const updatedComment = await this.findOneWithPublicUser(savedComment.id);
+
     if (!updatedComment) {
-      throw new NotFoundException(`Comment with id ${savedComment.id} not found`);
+      throw new NotFoundException(
+        `Comment with id ${savedComment.id} not found`,
+      );
     }
-    
+
     return updatedComment;
   }
 
@@ -90,5 +90,14 @@ export class CommentsService {
     }
 
     await this.commentsRepository.remove(comment);
+  }
+
+  private async findOneWithPublicUser(id: string): Promise<Comment | null> {
+    return await this.commentsRepository
+      .createQueryBuilder('comment')
+      .leftJoin('comment.user', 'user')
+      .addSelect(['user.id', 'user.nickname', 'user.profileImage'])
+      .where('comment.id = :id', { id })
+      .getOne();
   }
 }

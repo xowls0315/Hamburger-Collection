@@ -1,4 +1,4 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { BadRequestException, Controller, Get, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { StoresService } from './stores.service';
 
@@ -46,11 +46,46 @@ export class StoresController {
     @Query('lng') lng: string,
     @Query('radius') radius?: string,
   ) {
+    const parsedLat = this.parseBoundedFloat(lat, -90, 90, 'lat');
+    const parsedLng = this.parseBoundedFloat(lng, -180, 180, 'lng');
+    const parsedRadius = this.parseBoundedInt(radius, 5000, 1, 20000, 'radius');
     return this.storesService.searchStores(
       brandSlug,
-      parseFloat(lat),
-      parseFloat(lng),
-      radius ? parseInt(radius) : 5000,
+      parsedLat,
+      parsedLng,
+      parsedRadius,
     );
+  }
+
+  private parseBoundedFloat(
+    value: string | undefined,
+    min: number,
+    max: number,
+    name: string,
+  ) {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${name} must be a number between ${min} and ${max}`,
+      );
+    }
+    return parsed;
+  }
+
+  private parseBoundedInt(
+    value: string | undefined,
+    defaultValue: number,
+    min: number,
+    max: number,
+    name: string,
+  ) {
+    if (value === undefined) return defaultValue;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${name} must be an integer between ${min} and ${max}`,
+      );
+    }
+    return parsed;
   }
 }

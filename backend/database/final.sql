@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS "hamburger-collection".users (
     kakao_id VARCHAR(100) UNIQUE,
     login_id VARCHAR(50) UNIQUE,
     password VARCHAR(255),
+    refresh_token_hash VARCHAR(255),
     email VARCHAR(255),
     nickname VARCHAR(100) NOT NULL,
     profile_image VARCHAR(500),

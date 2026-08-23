@@ -24,7 +24,8 @@ export class PostsService {
     // QueryBuilder를 사용하여 댓글 개수 포함
     const queryBuilder = this.postsRepository
       .createQueryBuilder('post')
-      .leftJoinAndSelect('post.user', 'user')
+      .leftJoin('post.user', 'user')
+      .addSelect(['user.id', 'user.nickname', 'user.profileImage'])
       .loadRelationCountAndMap('post._count.comments', 'post.comments')
       .orderBy('post.createdAt', 'DESC')
       .skip(skip)
@@ -38,14 +39,14 @@ export class PostsService {
     const commentCountsMap: Record<string, number> = {};
 
     if (postIds.length > 0) {
-      const commentCounts = await this.postsRepository.manager
+      const commentCounts = (await this.postsRepository.manager
         .createQueryBuilder()
         .select('post_id', 'postId')
         .addSelect('COUNT(*)', 'count')
         .from('comments', 'comment')
         .where('comment.post_id IN (:...postIds)', { postIds })
         .groupBy('comment.post_id')
-        .getRawMany() as Array<{ postId: string; count: string }>;
+        .getRawMany()) as Array<{ postId: string; count: string }>;
 
       commentCounts.forEach((item) => {
         commentCountsMap[item.postId] = parseInt(item.count, 10);
@@ -70,18 +71,19 @@ export class PostsService {
   }
 
   async findOne(id: string): Promise<Post> {
-    const post = await this.postsRepository.findOne({
-      where: { id },
-      relations: ['user', 'comments', 'comments.user'],
-    });
+    const post = await this.postsRepository
+      .createQueryBuilder('post')
+      .leftJoin('post.user', 'user')
+      .addSelect(['user.id', 'user.nickname', 'user.profileImage'])
+      .where('post.id = :id', { id })
+      .getOne();
 
     if (!post) {
       throw new NotFoundException(`Post with id ${id} not found`);
     }
 
-    // 조회수 증가
+    await this.postsRepository.increment({ id }, 'viewCount', 1);
     post.viewCount += 1;
-    await this.postsRepository.save(post);
 
     return post;
   }

@@ -1,4 +1,10 @@
-import { Controller, Get, Param, Query } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Get,
+  Param,
+  Query,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
@@ -55,12 +61,31 @@ export class MenuItemsController {
     @Query('page') page?: string,
     @Query('limit') limit?: string,
   ) {
+    const parsedPage = this.parseBoundedInt(page, 1, 1, 100000, 'page');
+    const parsedLimit = this.parseBoundedInt(limit, 12, 1, 100, 'limit');
     return this.menuItemsService.findAllByBrandSlug(slug, {
       category,
       sort,
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 12,
+      page: parsedPage,
+      limit: parsedLimit,
     });
+  }
+
+  private parseBoundedInt(
+    value: string | undefined,
+    defaultValue: number,
+    min: number,
+    max: number,
+    name: string,
+  ) {
+    if (value === undefined) return defaultValue;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${name} must be an integer between ${min} and ${max}`,
+      );
+    }
+    return parsed;
   }
 }
 

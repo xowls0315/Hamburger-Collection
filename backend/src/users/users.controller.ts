@@ -1,4 +1,4 @@
-import { Controller, Get, Param } from '@nestjs/common';
+import { Controller, Get, NotFoundException, Param } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiParam } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 
@@ -15,7 +15,11 @@ export class UsersController {
   @ApiParam({ name: 'id', description: '사용자 ID (UUID)' })
   @ApiResponse({ status: 200, description: '사용자 정보 조회 성공' })
   @ApiResponse({ status: 404, description: '사용자를 찾을 수 없음' })
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const user = await this.usersService.findPublicProfile(id);
+    if (!user) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+    return user;
   }
 }

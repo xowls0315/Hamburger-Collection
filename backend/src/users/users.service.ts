@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
+import { PublicUserDto, toPublicUser } from './dto/public-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -55,6 +56,14 @@ export class UsersService {
     return await this.usersRepository.findOne({ where: { loginId } });
   }
 
+  async findByLoginIdWithPassword(loginId: string): Promise<User | null> {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.loginId = :loginId', { loginId })
+      .getOne();
+  }
+
   async findByEmail(email: string): Promise<User | null> {
     return await this.usersRepository.findOne({ where: { email } });
   }
@@ -63,9 +72,33 @@ export class UsersService {
     return await this.usersRepository.findOne({ where: { id } });
   }
 
+  async findOneWithPassword(id: string): Promise<User | null> {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.password')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
+  async findOneWithRefreshTokenHash(id: string): Promise<User | null> {
+    return await this.usersRepository
+      .createQueryBuilder('user')
+      .addSelect('user.refreshTokenHash')
+      .where('user.id = :id', { id })
+      .getOne();
+  }
+
+  async findPublicProfile(id: string): Promise<PublicUserDto | null> {
+    const user = await this.findOne(id);
+    return user ? toPublicUser(user) : null;
+  }
+
   /** 아이디·비밀번호 검증 (로그인용). 성공 시 User, 실패 시 null */
-  async validateLocalUser(loginId: string, plainPassword: string): Promise<User | null> {
-    const user = await this.findByLoginId(loginId);
+  async validateLocalUser(
+    loginId: string,
+    plainPassword: string,
+  ): Promise<User | null> {
+    const user = await this.findByLoginIdWithPassword(loginId);
     if (!user || !user.password) return null;
     const ok = await bcrypt.compare(plainPassword, user.password);
     return ok ? user : null;

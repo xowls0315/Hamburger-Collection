@@ -9,6 +9,7 @@ import {
   Query,
   UseGuards,
   Req,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,7 +33,8 @@ export class PostsController {
   @Get()
   @ApiOperation({
     summary: '게시글 목록 조회',
-    description: '페이지네이션과 함께 게시글 목록을 반환합니다. 인증 필요 없음.',
+    description:
+      '페이지네이션과 함께 게시글 목록을 반환합니다. 인증 필요 없음.',
   })
   @ApiQuery({
     name: 'page',
@@ -48,10 +50,29 @@ export class PostsController {
   })
   @ApiResponse({ status: 200, description: '게시글 목록 조회 성공' })
   findAll(@Query('page') page?: string, @Query('limit') limit?: string) {
+    const parsedPage = this.parseBoundedInt(page, 1, 1, 100000, 'page');
+    const parsedLimit = this.parseBoundedInt(limit, 20, 1, 100, 'limit');
     return this.postsService.findAll({
-      page: page ? parseInt(page) : 1,
-      limit: limit ? parseInt(limit) : 20,
+      page: parsedPage,
+      limit: parsedLimit,
     });
+  }
+
+  private parseBoundedInt(
+    value: string | undefined,
+    defaultValue: number,
+    min: number,
+    max: number,
+    name: string,
+  ) {
+    if (value === undefined) return defaultValue;
+    const parsed = Number(value);
+    if (!Number.isInteger(parsed) || parsed < min || parsed > max) {
+      throw new BadRequestException(
+        `${name} must be an integer between ${min} and ${max}`,
+      );
+    }
+    return parsed;
   }
 
   @Get(':id')

@@ -1,4 +1,8 @@
-import { Injectable, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UsersService } from '../users/users.service';
@@ -81,11 +85,12 @@ export class AuthService {
       let user = await this.usersService.findByKakaoId(kakaoId);
       if (!user) {
         // 프로필 이미지 URL이 http://로 시작하면 https://로 변환
-        let profileImageUrl = kakaoUser.kakao_account?.profile?.profile_image_url || null;
+        let profileImageUrl =
+          kakaoUser.kakao_account?.profile?.profile_image_url || null;
         if (profileImageUrl && profileImageUrl.startsWith('http://')) {
           profileImageUrl = profileImageUrl.replace('http://', 'https://');
         }
-        
+
         user = await this.usersService.create({
           kakaoId,
           nickname: kakaoUser.kakao_account?.profile?.nickname || '사용자',
@@ -95,17 +100,20 @@ export class AuthService {
         // 기존 사용자의 프로필 이미지도 업데이트 (http -> https 변환)
         if (user.profileImage && user.profileImage.startsWith('http://')) {
           user.profileImage = user.profileImage.replace('http://', 'https://');
-          await this.usersService.update(user.id, { profileImage: user.profileImage });
+          await this.usersService.update(user.id, {
+            profileImage: user.profileImage,
+          });
         }
       }
 
       // JWT 토큰 생성
-      const payload = { sub: user.id, email: user.kakaoId ?? user.email ?? user.loginId };
+      const payload = {
+        sub: user.id,
+        email: user.kakaoId ?? user.email ?? user.loginId,
+      };
       const jwtAccessToken = this.jwtService.sign(payload);
-      const jwtRefreshToken = this.jwtService.sign(payload, {
-        secret: jwtRefreshSecret,
-        expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
-      });
+      const jwtRefreshToken = this.createRefreshToken(payload);
+      await this.storeRefreshToken(user.id, jwtRefreshToken);
 
       return {
         user,
@@ -113,7 +121,11 @@ export class AuthService {
         refreshToken: jwtRefreshToken,
       };
     } catch (error: unknown) {
-      const err = error as { message?: string; response?: { data?: unknown }; stack?: string };
+      const err = error as {
+        message?: string;
+        response?: { data?: unknown };
+        stack?: string;
+      };
       console.error('카카오 로그인 에러:', {
         message: err.message,
         response: err.response?.data,
@@ -129,20 +141,32 @@ export class AuthService {
   }
 
   /** 일반 회원가입 */
-  async register(data: { loginId: string; password: string; email: string; nickname: string }) {
+  async register(data: {
+    loginId: string;
+    password: string;
+    email: string;
+    nickname: string;
+  }) {
     return this.usersService.createLocal(data);
   }
 
   /** 로컬 로그인 후 JWT 발급 (쿠키는 컨트롤러에서 설정) */
-  async localLogin(user: { id: string; kakaoId: string | null; email: string | null; loginId: string | null }) {
+  async localLogin(user: {
+    id: string;
+    kakaoId: string | null;
+    email: string | null;
+    loginId: string | null;
+  }) {
     const jwtRefreshSecret = this.configService.get('JWT_REFRESH_SECRET');
-    if (!jwtRefreshSecret) throw new Error('JWT_REFRESH_SECRET이 설정되지 않았습니다.');
-    const payload = { sub: user.id, email: user.kakaoId ?? user.email ?? user.loginId };
+    if (!jwtRefreshSecret)
+      throw new Error('JWT_REFRESH_SECRET이 설정되지 않았습니다.');
+    const payload = {
+      sub: user.id,
+      email: user.kakaoId ?? user.email ?? user.loginId,
+    };
     const accessToken = this.jwtService.sign(payload);
-    const refreshToken = this.jwtService.sign(payload, {
-      secret: jwtRefreshSecret,
-      expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
-    });
+    const refreshToken = this.createRefreshToken(payload);
+    await this.storeRefreshToken(user.id, refreshToken);
     const fullUser = await this.usersService.findOne(user.id);
     if (!fullUser) throw new UnauthorizedException();
     return { user: fullUser, accessToken, refreshToken };
@@ -158,10 +182,15 @@ export class AuthService {
   }
 
   /** PW 찾기: 임시 비밀번호 생성 후 DB 저장, 평문 반환 (이메일 발송 없음) */
-  async findPw(email: string, loginId: string): Promise<{ temporaryPassword: string }> {
+  async findPw(
+    email: string,
+    loginId: string,
+  ): Promise<{ temporaryPassword: string }> {
     const user = await this.usersService.findByLoginId(loginId);
     if (!user || !user.email || user.email !== email) {
-      throw new BadRequestException('아이디와 이메일이 일치하는 계정이 없습니다.');
+      throw new BadRequestException(
+        '아이디와 이메일이 일치하는 계정이 없습니다.',
+      );
     }
     const temp = crypto.randomBytes(4).toString('hex'); // 8자
     const hashed = await bcrypt.hash(temp, 10);
@@ -175,11 +204,16 @@ export class AuthService {
     currentPassword: string,
     newPassword: string,
   ): Promise<void> {
-    const user = await this.usersService.findOne(userId);
+    const user = await this.usersService.findOneWithPassword(userId);
     if (!user || !user.password) {
-      throw new BadRequestException('일반 계정만 비밀번호를 변경할 수 있습니다.');
+      throw new BadRequestException(
+        '일반 계정만 비밀번호를 변경할 수 있습니다.',
+      );
     }
-    const valid = await this.usersService.validateLocalUser(user.loginId!, currentPassword);
+    const valid = await this.usersService.validateLocalUser(
+      user.loginId!,
+      currentPassword,
+    );
     if (!valid) {
       throw new UnauthorizedException('현재 비밀번호가 일치하지 않습니다.');
     }
@@ -192,20 +226,60 @@ export class AuthService {
       const payload = this.jwtService.verify(refreshToken, {
         secret: this.configService.get('JWT_REFRESH_SECRET'),
       });
-      const user = await this.usersService.findOne(payload.sub);
+      const user = await this.usersService.findOneWithRefreshTokenHash(
+        payload.sub,
+      );
 
-      if (!user) {
+      if (!user || !user.refreshTokenHash) {
         throw new UnauthorizedException();
       }
 
-      const newPayload = { sub: user.id, email: user.kakaoId ?? user.email ?? user.loginId };
+      const isCurrentRefreshToken = await bcrypt.compare(
+        refreshToken,
+        user.refreshTokenHash,
+      );
+      if (!isCurrentRefreshToken) {
+        await this.usersService.update(user.id, { refreshTokenHash: null });
+        throw new UnauthorizedException();
+      }
+
+      const newPayload = {
+        sub: user.id,
+        email: user.kakaoId ?? user.email ?? user.loginId,
+      };
       const newAccessToken = this.jwtService.sign(newPayload);
+      const newRefreshToken = this.createRefreshToken(newPayload);
+      await this.storeRefreshToken(user.id, newRefreshToken);
 
       return {
         accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
       };
     } catch (error) {
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  async logout(refreshToken: string): Promise<void> {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.get('JWT_REFRESH_SECRET'),
+      });
+      await this.usersService.update(payload.sub, { refreshTokenHash: null });
+    } catch {
+      return;
+    }
+  }
+
+  private createRefreshToken(payload: { sub: string; email: string | null }) {
+    return this.jwtService.sign(payload, {
+      secret: this.configService.get('JWT_REFRESH_SECRET'),
+      expiresIn: this.configService.get('JWT_REFRESH_EXPIRES_IN') || '7d',
+    });
+  }
+
+  private async storeRefreshToken(userId: string, refreshToken: string) {
+    const refreshTokenHash = await bcrypt.hash(refreshToken, 10);
+    await this.usersService.update(userId, { refreshTokenHash });
   }
 }

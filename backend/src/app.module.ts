@@ -13,6 +13,7 @@ import { AuthModule } from './auth/auth.module';
 import { StoresModule } from './stores/stores.module';
 import { AdminModule } from './admin/admin.module';
 import { FavoritesModule } from './favorites/favorites.module';
+import { DB_SCHEMA_NAME } from './constants/database';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { FavoritesModule } from './favorites/favorites.module';
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: (configService: ConfigService) => {
-        const schema = configService.get<string>('DB_SCHEMA') ?? 'public';
+        const schema = configService.get<string>('DB_SCHEMA') ?? DB_SCHEMA_NAME;
         // 스키마가 public이 아닐 때: search_path에 public 포함 → public.uuid_generate_v4() 사용 가능
         const extra: { options: string } | undefined =
           schema !== 'public'
