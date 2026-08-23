@@ -15,24 +15,34 @@ export default function EditPostPage() {
   const id = params.id as string;
 
   const { data: post, isLoading: loading } = usePost(id);
-  const updatePostMutation = useUpdatePost();
-
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [initialized, setInitialized] = useState(false);
 
   useEffect(() => {
-    if (!post || initialized) return;
-
+    if (!post) return;
     if (user && post.author && user.id !== post.author.id) {
       router.push(`/board/${id}`);
-      return;
     }
+  }, [post, user, router, id]);
 
-    setTitle(post.title);
-    setContent(post.content);
-    setInitialized(true);
-  }, [post, user, router, id, initialized]);
+  if (loading || !post) {
+    return <EditPostSkeleton />;
+  }
+
+  return <EditPostForm id={id} initialTitle={post.title} initialContent={post.content} />;
+}
+
+function EditPostForm({
+  id,
+  initialTitle,
+  initialContent,
+}: {
+  id: string;
+  initialTitle: string;
+  initialContent: string;
+}) {
+  const router = useRouter();
+  const updatePostMutation = useUpdatePost();
+  const [title, setTitle] = useState(initialTitle);
+  const [content, setContent] = useState(initialContent);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -54,29 +64,8 @@ export default function EditPostPage() {
 
   const saving = updatePostMutation.isPending;
 
-  if (loading || saving || !initialized) {
-    return (
-      <div className="container mx-auto px-4 py-8">
-        <Skeleton className="mb-6 h-10 w-48" />
-        <div className="mx-auto max-w-3xl">
-          <Skeleton className="mb-6 h-9 w-32" />
-          <div className="space-y-6 rounded-lg border border-gray-200 bg-white p-6">
-            <div>
-              <Skeleton className="mb-2 h-5 w-16" />
-              <Skeleton className="h-10 w-full" />
-            </div>
-            <div>
-              <Skeleton className="mb-2 h-5 w-16" />
-              <Skeleton className="h-64 w-full" />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Skeleton className="h-10 w-20" />
-              <Skeleton className="h-10 w-24" />
-            </div>
-          </div>
-        </div>
-      </div>
-    );
+  if (saving) {
+    return <EditPostSkeleton />;
   }
 
   return (
@@ -145,6 +134,31 @@ export default function EditPostPage() {
             </button>
           </div>
         </form>
+      </div>
+    </div>
+  );
+}
+
+function EditPostSkeleton() {
+  return (
+    <div className="container mx-auto px-4 py-8">
+      <Skeleton className="mb-6 h-10 w-48" />
+      <div className="mx-auto max-w-3xl">
+        <Skeleton className="mb-6 h-9 w-32" />
+        <div className="space-y-6 rounded-lg border border-gray-200 bg-white p-6">
+          <div>
+            <Skeleton className="mb-2 h-5 w-16" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div>
+            <Skeleton className="mb-2 h-5 w-16" />
+            <Skeleton className="h-64 w-full" />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Skeleton className="h-10 w-20" />
+            <Skeleton className="h-10 w-24" />
+          </div>
+        </div>
       </div>
     </div>
   );

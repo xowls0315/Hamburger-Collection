@@ -10,9 +10,55 @@ import { useBrand } from "../../../../hooks/queries/useBrands";
 import { useStoreSearch } from "../../../../hooks/queries/useStores";
 import { StoreCardSkeleton } from "../../../../components/ui/Skeleton";
 
+type KakaoLatLng = object;
+type KakaoMarkerImage = object;
+
+interface KakaoMap {
+  setCenter(position: KakaoLatLng): void;
+  setLevel(level: number): void;
+  setBounds(bounds: KakaoLatLngBounds): void;
+}
+
+interface KakaoMarker {
+  setMap(map: KakaoMap | null): void;
+}
+
+interface KakaoCustomOverlay {
+  setMap(map: KakaoMap | null): void;
+}
+
+interface KakaoLatLngBounds {
+  extend(position: KakaoLatLng): void;
+}
+
+interface KakaoMaps {
+  LatLng: new (lat: number, lng: number) => KakaoLatLng;
+  Map: new (container: HTMLElement, options: { center: KakaoLatLng; level: number }) => KakaoMap;
+  Marker: new (options: { position: KakaoLatLng; image?: KakaoMarkerImage }) => KakaoMarker;
+  Size: new (width: number, height: number) => object;
+  Point: new (x: number, y: number) => object;
+  MarkerImage: new (
+    src: string,
+    size: object,
+    options?: { offset: object },
+  ) => KakaoMarkerImage;
+  CustomOverlay: new (options: {
+    position: KakaoLatLng;
+    content: string;
+    yAnchor: number;
+  }) => KakaoCustomOverlay;
+  LatLngBounds: new () => KakaoLatLngBounds;
+  event: {
+    addListener(target: KakaoMarker, eventName: string, callback: () => void): void;
+  };
+  load(callback: () => void): void;
+}
+
 declare global {
   interface Window {
-    kakao: any;
+    kakao?: {
+      maps?: KakaoMaps;
+    };
   }
 }
 
@@ -20,10 +66,10 @@ export default function StoresPage() {
   const params = useParams();
   const slug = params.slug as string;
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const currentLocationMarkerRef = useRef<any>(null);
-  const currentLocationOverlayRef = useRef<any>(null); // 현재 위치 CustomOverlay // 현재 위치 마커
+  const mapInstanceRef = useRef<KakaoMap | null>(null);
+  const markersRef = useRef<KakaoMarker[]>([]);
+  const currentLocationMarkerRef = useRef<KakaoMarker | null>(null);
+  const currentLocationOverlayRef = useRef<KakaoCustomOverlay | null>(null);
 
   const [stores, setStores] = useState<Store[]>([]);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -203,7 +249,10 @@ export default function StoresPage() {
 
   // 현재 위치 마커 표시 (빨간색)
   const showCurrentLocationMarker = (lat: number, lng: number) => {
-    if (!mapInstanceRef.current || !window.kakao || !window.kakao.maps) {
+    const maps = window.kakao?.maps;
+    const map = mapInstanceRef.current;
+
+    if (!map || !maps) {
       return;
     }
 
@@ -217,26 +266,26 @@ export default function StoresPage() {
 
     // 빨간색 마커 이미지 생성
     const imageSrc = 'https://t1.daumcdn.net/localimg/localimages/07/mapapidoc/marker_red.png';
-    const imageSize = new window.kakao.maps.Size(24, 35);
-    const imageOption = { offset: new window.kakao.maps.Point(12, 35) };
-    const markerImage = new window.kakao.maps.MarkerImage(imageSrc, imageSize, imageOption);
+    const imageSize = new maps.Size(24, 35);
+    const imageOption = { offset: new maps.Point(12, 35) };
+    const markerImage = new maps.MarkerImage(imageSrc, imageSize, imageOption);
 
     // 현재 위치 마커 생성
-    const currentPosition = new window.kakao.maps.LatLng(lat, lng);
-    const marker = new window.kakao.maps.Marker({
+    const currentPosition = new maps.LatLng(lat, lng);
+    const marker = new maps.Marker({
       position: currentPosition,
       image: markerImage,
     });
-    marker.setMap(mapInstanceRef.current);
+    marker.setMap(map);
     currentLocationMarkerRef.current = marker;
 
     // CustomOverlay로 "현재 위치" 라벨 표시 (width: fit-content)
-    const customOverlay = new window.kakao.maps.CustomOverlay({
+    const customOverlay = new maps.CustomOverlay({
       position: currentPosition,
       content: '<div style="padding: 4px 8px; background: white; border: 1px solid #e5e7eb; border-radius: 12px; font-weight: 600; color: #374151; font-size: 11px; white-space: nowrap; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">현재 위치</div>',
       yAnchor: 2.2, // 마커 위에 표시
     });
-    customOverlay.setMap(mapInstanceRef.current);
+    customOverlay.setMap(map);
     currentLocationOverlayRef.current = customOverlay;
   };
 
@@ -250,7 +299,10 @@ export default function StoresPage() {
       }
     }
 
-    if (!mapInstanceRef.current || !window.kakao || !window.kakao.maps) {
+    const maps = window.kakao?.maps;
+    const map = mapInstanceRef.current;
+
+    if (!map || !maps) {
       console.warn("카카오맵이 준비되지 않았습니다.");
       return;
     }
@@ -266,47 +318,47 @@ export default function StoresPage() {
 
     if (stores.length === 0) {
       // 매장이 없어도 현재 위치는 중심으로 이동
-      if (currentLat && currentLng && mapInstanceRef.current) {
-        const currentPosition = new window.kakao.maps.LatLng(currentLat, currentLng);
-        mapInstanceRef.current.setCenter(currentPosition);
-        mapInstanceRef.current.setLevel(5);
+      if (currentLat && currentLng) {
+        const currentPosition = new maps.LatLng(currentLat, currentLng);
+        map.setCenter(currentPosition);
+        map.setLevel(5);
       }
       return;
     }
 
     // 매장 마커 생성
-    const bounds = new window.kakao.maps.LatLngBounds();
+    const bounds = new maps.LatLngBounds();
     
     // 현재 위치도 bounds에 포함
     if (currentLat && currentLng) {
-      bounds.extend(new window.kakao.maps.LatLng(currentLat, currentLng));
+      bounds.extend(new maps.LatLng(currentLat, currentLng));
     }
 
     stores.forEach((store) => {
-      const position = new window.kakao.maps.LatLng(
+      const position = new maps.LatLng(
         parseFloat(store.y),
         parseFloat(store.x)
       );
-      const marker = new window.kakao.maps.Marker({ position });
-      marker.setMap(mapInstanceRef.current);
+      const marker = new maps.Marker({ position });
+      marker.setMap(map);
       markersRef.current.push(marker);
       bounds.extend(position);
 
       // 매장 마커 클릭 시 리스트에서 선택 상태로 변경 (인포윈도우 표시 안 함)
-      window.kakao.maps.event.addListener(marker, "click", () => {
+      maps.event.addListener(marker, "click", () => {
         setSelectedStoreId(store.id);
         // 지도 중심을 클릭한 매장으로 이동
-        const clickedPosition = new window.kakao.maps.LatLng(
+        const clickedPosition = new maps.LatLng(
           parseFloat(store.y),
           parseFloat(store.x)
         );
-        mapInstanceRef.current.setCenter(clickedPosition);
-        mapInstanceRef.current.setLevel(3);
+        map.setCenter(clickedPosition);
+        map.setLevel(3);
       });
     });
 
     // 지도 범위 조정 (현재 위치와 모든 매장 포함)
-    mapInstanceRef.current.setBounds(bounds);
+    map.setBounds(bounds);
   };
 
   useEffect(() => {
